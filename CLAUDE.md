@@ -109,3 +109,37 @@ Ver README.md para el detalle.
 ## Estado del proyecto
 Ver README.md para el estado actual de cada módulo (qué está construido,
 qué falta, cómo probarlo).
+
+### Sesión 2026-08-25 — resumen para continuar
+- Módulos 1 (Registro/Login) y 2 (Creación de ruta) quedaron construidos y
+  probados de punta a punta en navegador real: registro con RUT chileno,
+  subida de documentos de vehículo, mapa Leaflet con clics para trazar ruta,
+  cálculo real por calles vía OSRM, y publicación visible en el listado.
+- El usuario (Carlos) ya registró una cuenta real y publicó una ruta real
+  (Peñaflor → Providencia) desde su propio navegador — no son solo datos de
+  prueba por API.
+- Repo en GitHub: https://github.com/CarlotoCarlangas/CARPOOLING (rama `main`).
+
+### ⚠️ Pendiente urgente: acceso entre redes distintas
+Hoy probamos el flujo entre dos "dispositivos" asumiendo la **misma red Wi-Fi**
+(el backend escucha en `0.0.0.0:8000`, el frontend en `0.0.0.0:5173`, y el
+frontend detecta automáticamente la IP del navegador para llamar al backend).
+Esto **no sirve** si las dos personas están en comunas/redes distintas, porque
+`192.168.x.x` es una IP privada que solo existe dentro de esa red local.
+
+El usuario planea probar mañana con otra persona desde otro PC, otra comuna,
+otra red — antes de seguir con el Módulo 3, **hay que resolver el acceso
+entre redes distintas**. Opciones a evaluar con el usuario (explicar en
+simple, sin asumir que sabe qué es un túnel o un deploy):
+1. **Túnel temporal (rápido, gratis, para probar hoy mismo)**: algo como
+   `ngrok` o `cloudflared` expone el backend y el frontend con una URL
+   pública temporal, sin tocar el código. Ideal para pruebas puntuales pero
+   la URL cambia cada vez que se reinicia (a menos que se pague un plan).
+2. **Desplegar de verdad (más estable, sirve para las siguientes pruebas)**:
+   subir el backend a un hosting gratuito (ej. Railway, Render) y el
+   frontend a otro (ej. Vercel, Netlify). Requiere ajustar `VITE_API_URL`
+   y las URLs de `CORS`/OSRM ya están pensadas para esto (ver TODO
+   PRODUCCIÓN en `main.py`).
+- Preguntar al usuario cuál prefiere antes de implementar (la opción 1 es
+  más rápida para "probar mañana"; la opción 2 es mejor si van a seguir
+  probando varios días).
