@@ -1,0 +1,156 @@
+"""
+Modelos de base de datos (tablas SQLite vía SQLModel).
+
+Cada campo que guarda un dato personal tiene un comentario
+`# PRIVACIDAD: ...` explicando por qué se recolecta, como exige la
+Ley 21.719 (principio de finalidad y minimización de datos).
+"""
+from datetime import datetime
+from typing import List, Optional
+
+from sqlalchemy import Column, JSON
+from sqlmodel import Field, SQLModel
+
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # PRIVACIDAD: el RUT identifica de forma única a la persona en Chile.
+    # Se usa para login y para evitar cuentas duplicadas/fraudulentas.
+    rut: str = Field(index=True, unique=True)
+
+    # PRIVACIDAD: nombre necesario para que conductor y pasajero se
+    # identifiquen entre sí antes y durante el viaje.
+    nombre: str
+
+    # PRIVACIDAD: teléfono necesario para coordinar el viaje (ej. avisar
+    # atraso) y como canal de contacto de emergencia.
+    telefono: str
+
+    # PRIVACIDAD: email usado como identificador de cuenta y para
+    # notificaciones (confirmaciones de reserva, recuperación de clave).
+    email: str = Field(index=True, unique=True)
+
+    password_hash: str
+
+    # Token simple de sesión para el prototipo.
+    # TODO PRODUCCIÓN: reemplazar por JWT firmado con expiración y refresh
+    # token; este esquema no expira y es solo para pruebas entre dos personas.
+    token: Optional[str] = Field(default=None, index=True)
+
+    # PRIVACIDAD: foto de perfil para que el otro usuario pueda reconocer
+    # a la persona al encontrarse (seguridad del encuentro presencial).
+    foto_url: Optional[str] = None
+
+    es_conductor: bool = Field(default=False)
+    es_pasajero: bool = Field(default=False)
+
+    # PRIVACIDAD: género es un dato sensible. Es opcional y solo se pide
+    # porque habilita la función voluntaria "modo solo mujeres". Si el
+    # usuario no la activa, no es necesario entregarlo.
+    genero: Optional[str] = None  # "femenino" | "masculino" | "otro" | None
+
+    # Preferencia opcional: si está activo, este usuario solo verá/aceptará
+    # viajes marcados como "solo mujeres".
+    modo_solo_mujeres: bool = Field(default=False)
+
+    # Consentimiento explícito (Ley 21.719) — obligatorio para poder crear
+    # la cuenta. Se guarda cuándo se aceptó para tener trazabilidad.
+    acepta_terminos: bool = Field(default=False)
+    fecha_aceptacion_terminos: Optional[datetime] = None
+
+    fecha_registro: datetime = Field(default_factory=datetime.utcnow)
+
+    # Promedio de evaluaciones recibidas (módulo 7). Se recalcula al recibir
+    # cada review nueva.
+    calificacion_promedio: Optional[float] = None
+    total_calificaciones: int = Field(default=0)
+
+
+class VehiculoDocumento(SQLModel, table=True):
+    """
+    Documentos habilitantes del vehículo/conductor.
+    Un conductor no puede publicar rutas hasta subir estos 3 documentos.
+
+    TODO PRODUCCIÓN: hoy solo se guarda la URL del archivo subido, sin
+    validar su contenido. En producción esto debería pasar por revisión
+    manual o automática (OCR + verificación de vigencia) antes de marcar
+    `verificado = True`.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True, unique=True)
+
+    patente: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+
+    # PRIVACIDAD: la licencia de conducir prueba que la persona está
+    # habilitada legalmente para conducir. Es obligatoria para operar
+    # como conductor en la plataforma.
+    licencia_conducir_url: Optional[str] = None
+
+    # PRIVACIDAD: la revisión técnica prueba que el vehículo está en
+    # condiciones seguras de circular. Exigida para proteger a los
+    # pasajeros.
+    revision_tecnica_url: Optional[str] = None
+
+    # PRIVACIDAD: el SOAP (seguro obligatorio de accidentes personales)
+    # prueba que el vehículo tiene cobertura mínima en caso de accidente.
+    soap_url: Optional[str] = None
+
+    verificado: bool = Field(default=False)
+    fecha_actualizacion: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Route(SQLModel, table=True):
+    """
+    Ruta publicada por un conductor.
+
+    `paradas` y `geometria` se guardan como JSON:
+    - paradas: lista de paradas intermedias [{lat, lng, direccion}, ...]
+    - geometria: lista de puntos [[lat, lng], ...] que traza la ruta real
+      por calles (viene de OSRM, calculado en el navegador del conductor
+      al momento de crear la ruta).
+    - dias_recurrencia: lista de días ["lunes", "martes", ...]
+
+    TODO PRODUCCIÓN: normalizar `paradas` en su propia tabla si en el
+    futuro se necesita, por ejemplo, que un pasajero reserve solo hasta
+    una parada intermedia. Para el prototipo, JSON es suficiente y más
+    simple.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    conductor_id: int = Field(foreign_key="user.id", index=True)
+
+    # PRIVACIDAD (dato sensible - geolocalización): coordenadas de origen.
+    # Se recolectan solo para poder trazar la ruta y mostrarla a pasajeros
+    # que buscan viajes en ese trayecto.
+    origen_lat: float
+    origen_lng: float
+    origen_direccion: str
+
+    # PRIVACIDAD (dato sensible - geolocalización): coordenadas de destino.
+    destino_lat: float
+    destino_lng: float
+    destino_direccion: str
+
+    # PRIVACIDAD (dato sensible - geolocalización): puntos intermedios de
+    # la ruta real trazada por calles.
+    paradas: List[dict] = Field(default_factory=list, sa_column=Column(JSON))
+    geometria: List[List[float]] = Field(default_factory=list, sa_column=Column(JSON))
+
+    distancia_km: Optional[float] = None
+    duracion_min: Optional[float] = None
+
+    cupos_totales: int
+    cupos_disponibles: int
+
+    precio_sugerido: int  # CLP, precio base antes de comisión
+
+    hora_salida: str  # "HH:MM"
+    dias_recurrencia: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+    modo_solo_mujeres: bool = Field(default=False)
+    activa: bool = Field(default=True)
+
+    fecha_creacion: datetime = Field(default_factory=datetime.utcnow)
