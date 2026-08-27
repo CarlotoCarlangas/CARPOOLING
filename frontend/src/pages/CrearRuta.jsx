@@ -104,13 +104,17 @@ export default function CrearRuta() {
     <div className="max-w-2xl mx-auto p-6 my-6">
       <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
         <h1 className="text-2xl font-bold mb-1">Publicar ruta</h1>
-        <p className="text-sm text-gray-600 mb-4">
-          Haz clic en el mapa: primero el origen, luego el destino, y si quieres, más
-          clics agregan paradas intermedias. Después presiona "Calcular ruta por calles".
-        </p>
         <MapaSeleccionRuta onRutaLista={setRutaGeo} />
       </div>
 
+      {!rutaGeo && (
+        <div className="bg-white rounded-lg shadow-sm p-6 text-sm text-gray-500 text-center">
+          Traza tu ruta en el mapa de arriba y confirma que sea correcta para continuar
+          con cupos, horario y precio.
+        </div>
+      )}
+
+      {rutaGeo && (
       <form onSubmit={enviar} className="bg-white rounded-lg shadow-sm p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -189,6 +193,7 @@ export default function CrearRuta() {
           {enviando ? "Publicando..." : "Publicar ruta"}
         </button>
       </form>
+      )}
     </div>
   );
 }
