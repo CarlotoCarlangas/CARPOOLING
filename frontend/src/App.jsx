@@ -10,6 +10,7 @@ import Perfil from "./pages/Perfil";
 import CrearRuta from "./pages/CrearRuta";
 import Rutas from "./pages/Rutas";
 import DetalleRuta from "./pages/DetalleRuta";
+import Buscar from "./pages/Buscar";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/terminos" element={<Terminos />} />
           <Route path="/rutas" element={<Rutas />} />
+          <Route path="/buscar" element={<Buscar />} />
           <Route path="/rutas/:id" element={<DetalleRuta />} />
           <Route
             path="/perfil"

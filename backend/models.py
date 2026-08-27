@@ -128,11 +128,16 @@ class Route(SQLModel, table=True):
     origen_lat: float
     origen_lng: float
     origen_direccion: str
+    # Comuna del origen (ej. "Peñaflor"), extraída de la geocodificación al
+    # crear la ruta. Permite filtrar rutas por comuna en la búsqueda del
+    # pasajero sin tener que calcular distancias geográficas para eso.
+    origen_comuna: Optional[str] = Field(default=None, index=True)
 
     # PRIVACIDAD (dato sensible - geolocalización): coordenadas de destino.
     destino_lat: float
     destino_lng: float
     destino_direccion: str
+    destino_comuna: Optional[str] = Field(default=None, index=True)
 
     # PRIVACIDAD (dato sensible - geolocalización): puntos intermedios de
     # la ruta real trazada por calles.

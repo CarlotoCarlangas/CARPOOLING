@@ -16,6 +16,7 @@ export default function Navbar() {
         TACO
       </Link>
       <div className="flex items-center gap-4 text-sm">
+        <Link to="/buscar" className="hover:text-taco">Buscar viaje</Link>
         <Link to="/rutas" className="hover:text-taco">Ver rutas</Link>
         {estaAutenticado && usuario?.es_conductor && (
           <Link to="/crear-ruta" className="hover:text-taco">Publicar ruta</Link>

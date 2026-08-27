@@ -105,6 +105,7 @@ class PuntoRuta(BaseModel):
     lat: float
     lng: float
     direccion: str
+    comuna: Optional[str] = None
 
 
 class RouteCreate(BaseModel):
@@ -149,9 +150,11 @@ class RouteOut(BaseModel):
     origen_lat: float
     origen_lng: float
     origen_direccion: str
+    origen_comuna: Optional[str]
     destino_lat: float
     destino_lng: float
     destino_direccion: str
+    destino_comuna: Optional[str]
     paradas: List[dict]
     geometria: List[List[float]]
     distancia_km: Optional[float]

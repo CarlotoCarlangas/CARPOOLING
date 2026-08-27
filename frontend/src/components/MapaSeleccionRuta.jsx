@@ -48,8 +48,8 @@ export default function MapaSeleccionRuta({ onRutaLista }) {
 
     const alHacerClic = async (e) => {
       const { lat, lng } = e.latlng;
-      const direccion = await direccionDesdeCoordenadas(lat, lng);
-      setPuntos((prev) => [...prev, { lat, lng, direccion }]);
+      const { direccion, comuna } = await direccionDesdeCoordenadas(lat, lng);
+      setPuntos((prev) => [...prev, { lat, lng, direccion, comuna }]);
       setConfirmada(false);
       setResultado(null);
     };

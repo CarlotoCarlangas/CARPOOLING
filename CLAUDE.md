@@ -143,3 +143,65 @@ simple, sin asumir que sabe qué es un túnel o un deploy):
 - Preguntar al usuario cuál prefiere antes de implementar (la opción 1 es
   más rápida para "probar mañana"; la opción 2 es mejor si van a seguir
   probando varios días).
+  Este tema quedó pendiente sin resolver — el usuario pasó directo a
+  debatir el diseño del Módulo 3 en la sesión siguiente. Retomarlo si
+  menciona que quiere probar con alguien fuera de su red Wi-Fi.
+
+### Sesión 2026-08-26 — Módulo 3 (búsqueda del pasajero): diseño y v1 construida
+
+El usuario insistió mucho en que **el mapa es la propuesta de valor** ("en lo
+territorial está mi propuesta") — de ahí que la búsqueda no sea un buscador
+de texto clásico, sino exploración visual sobre el mapa. Diseño acordado
+tras varias rondas de debate:
+
+1. El pasajero elige **comuna de origen y comuna de destino** (sin esto no
+   se busca nada — evita mostrar todas las rutas del sistema sin filtro).
+2. Opcionalmente escribe una **dirección** (autocompletado vía Nominatim) o
+   hace **clic en el mapa** para marcar un punto más preciso que la comuna.
+3. Si marca un punto, aparece un **slider de "radio caminable"** (círculo
+   dibujado sobre el mapa) que puede ampliar si no ve viajes que le sirvan.
+   Se decidió slider en vez de arrastrar el borde del círculo a mano —
+   más simple de construir, mismo resultado para el usuario.
+4. El radio de origen y el de destino son **independientes** (no simétricos)
+   — surgió de notar que en el sentido Peñaflor→Santiago el origen necesita
+   radio estricto (periurbano, mal servido) y el destino puede ser más
+   amplio (llega a zona urbana con más transporte para el último tramo). Se
+   decidió NO hardcodear esa asimetría por geografía (se rompe en el viaje
+   de vuelta Santiago→Peñaflor) — en cambio, cada lado tiene su propio
+   slider y el usuario decide.
+5. Una ruta "califica" si tiene un punto (origen/parada/destino) dentro del
+   filtro de origen, Y **más adelante en la secuencia real del recorrido**
+   otro punto dentro del filtro de destino — importante para no ofrecer
+   viajes donde el pasajero iría "hacia atrás". Implementado en
+   `backend/routes/routes.py` (`buscar_rutas`, `_primer_punto_que_coincide`).
+
+**Lo que quedó construido y probado (backend + navegador real):**
+- `Route` ahora guarda `origen_comuna` / `destino_comuna` (extraídos de
+  Nominatim al crear la ruta). Los `paradas` (JSON) también llevan `comuna`
+  por punto vía el schema `PuntoRuta`.
+- `GET /api/routes/comunas`: lista de comunas con rutas activas (misma
+  lista sirve para el selector de origen y el de destino — el viaje no
+  tiene una dirección fija).
+- `GET /api/routes/buscar`: acepta `comuna_origen`/`comuna_destino` (modo
+  explorar) y/o `origen_lat`/`origen_lng`/`origen_radio_m` (+ el equivalente
+  para destino) para el modo círculo. Ambos modos comparten la misma lógica
+  de orden-en-la-secuencia.
+- Frontend: `pages/Buscar.jsx` + `components/MapaBusqueda.jsx` (dibuja
+  las rutas candidatas + los círculos). Nueva ruta `/buscar`, link "Buscar
+  viaje" en el Navbar.
+- `services/geocoding.js` ahora expone `buscarDireccion()` (texto ->
+  coordenadas, geocodificación directa) además de la inversa que ya existía.
+
+**Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
+que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
+acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer
+un cambio gigante de una sola vez (ver endpoints mínimos en la sección de
+arriba: `POST /api/requests`, `GET /api/requests/{route_id}`,
+`PUT /api/requests/{id}/accept`, `PUT /api/requests/{id}/reject`).
+
+**Nota de migración:** al agregar `origen_comuna`/`destino_comuna` a un
+`taco.db` que ya existía, hubo que correr un `ALTER TABLE` manual (SQLModel
+`create_all()` no migra columnas nuevas en tablas existentes). Si en el
+futuro se agregan más columnas a modelos existentes, recordar que hace
+falta el mismo tipo de migración manual — no hay Alembic configurado.
+TODO PRODUCCIÓN: configurar Alembic antes de que esto pase en producción.

@@ -93,6 +93,15 @@ export const api = {
     return request(`/routes${query ? `?${query}` : ""}`);
   },
   detalleRuta: (id) => request(`/routes/${id}`),
+
+  comunasDisponibles: () => request("/routes/comunas"),
+  buscarRutas: (params = {}) => {
+    const limpios = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== null && v !== undefined && v !== "")
+    );
+    const query = new URLSearchParams(limpios).toString();
+    return request(`/routes/buscar${query ? `?${query}` : ""}`);
+  },
 };
 
 export { API_URL, ApiError };
