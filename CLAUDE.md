@@ -205,6 +205,18 @@ distancia en ese lado. También se agregó `leaflet.markercluster` para
 agrupar pines cercanos (colores distintos para origen/destino), pensando
 en que con más rutas activas el mapa no se sature de pines sueltos.
 
+**Datos de prueba (`backend/seed_demo.py` / `backend/borrar_demo.py`):**
+el usuario reportó "no veo puntos al elegir la comuna de destino" — la
+causa real era que solo existía 1 ruta real en toda la base (Peñaflor →
+Providencia), así que casi ninguna combinación de comunas tenía nada que
+mostrar. Se creó `seed_demo.py`, que agrega 4 conductores ficticios
+(nombre termina en "(demo)" para poder identificarlos) y 10 rutas, todas
+saliendo de Peñaflor: 5 a distintos puntos de Providencia + 5 repartidas
+en Ñuñoa/Santiago/Las Condes/Maipú/La Florida. Correr con
+`venv\Scripts\python.exe seed_demo.py` desde `backend/`. Para sacarlos
+después, `borrar_demo.py`. Estos scripts son solo para desarrollo — nunca
+correrlos contra datos reales de producción.
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer
