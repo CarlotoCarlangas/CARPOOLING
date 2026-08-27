@@ -51,10 +51,11 @@ export default function MapaBusqueda({ rutas, circuloOrigen, centrarEn, ladoActi
 
   useEffect(() => {
     const mapa = L.map(contenedorRef.current).setView(CENTRO_INICIAL, 11);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      maxZoom: 20,
+    // Ver nota en MapaSeleccionRuta.jsx: CARTO Voyager empezó a exigir API
+    // key incluso gratis, así que se volvió al tile estándar de OSM.
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; colaboradores de OpenStreetMap",
+      maxZoom: 19,
     }).addTo(mapa);
 
     mapa.on("click", (e) => onClickRef.current?.(e.latlng.lat, e.latlng.lng));

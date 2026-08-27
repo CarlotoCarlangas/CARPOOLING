@@ -29,13 +29,16 @@ export default function MapaSeleccionRuta({ onRutaLista }) {
 
   useEffect(() => {
     const mapa = L.map(contenedorRef.current).setView(CENTRO_INICIAL, 11);
-    // Estilo tipo "app moderna" (parecido a Uber/Google Maps) en vez del
-    // tile por defecto de OpenStreetMap, que se ve más técnico. CARTO
-    // Voyager es gratis y no requiere llave de API.
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      maxZoom: 20,
+    // TODO PRODUCCIÓN: se probó un estilo "tipo Uber" (CARTO Voyager) pero
+    // ese proveedor empezó a exigir API key incluso en el nivel gratuito y
+    // el mapa se rompió (mostraba tiles con la leyenda "API KEY REQUIRED").
+    // Se volvió al tile estándar de OpenStreetMap porque es el único que
+    // demostró ser 100% confiable sin registrarse. Si se quiere un estilo
+    // más pulido, hay que sacar una API key gratuita en un proveedor serio
+    // (ej. MapTiler, Stadia Maps) y guardarla en una variable de entorno.
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; colaboradores de OpenStreetMap",
+      maxZoom: 19,
     }).addTo(mapa);
     mapRef.current = mapa;
 
