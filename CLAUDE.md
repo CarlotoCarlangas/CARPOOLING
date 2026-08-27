@@ -192,6 +192,19 @@ tras varias rondas de debate:
 - `services/geocoding.js` ahora expone `buscarDireccion()` (texto ->
   coordenadas, geocodificación directa) además de la inversa que ya existía.
 
+**Ajuste posterior en la misma sesión — el destino NO tiene radio:** tras
+seguir probando, el usuario decidió que el círculo de radio caminable solo
+tiene sentido en el origen (periurbano). En el destino (zona urbana) se
+sacó el radio por completo: solo queda el selector de comuna + una
+dirección opcional que únicamente hace zoom visual en el mapa (`centrarEn`
+en `MapaBusqueda.jsx`, con `setView(..., 15, {animate:false})` — el
+`animate:false` es importante, sin eso el zoom se quedaba pegado en el
+nivel anterior cuando el salto era grande). El pasajero explora con
+zoom/clustering y elige el pin que le sirva, sin que el backend filtre por
+distancia en ese lado. También se agregó `leaflet.markercluster` para
+agrupar pines cercanos (colores distintos para origen/destino), pensando
+en que con más rutas activas el mapa no se sature de pines sueltos.
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer
