@@ -2,6 +2,13 @@
 Genera datos de prueba (conductores + rutas ficticias) para poder probar
 el buscador del pasajero con variedad real de comunas y puntos en el mapa.
 
+Cada ruta tiene entre 5 y 10 paradas intermedias, repartidas entre la
+comuna de origen (Peñaflor) y la comuna de destino: la idea es que al
+buscar, un pasajero vea no solo el origen/destino "oficial" de la ruta
+sino también esas paradas como posibles puntos de recogida o bajada
+cercanos a él — así se prueba de verdad la lógica de "cualquier punto de
+la ruta cuenta" que ya existe en `GET /api/routes/buscar`.
+
 SOLO PARA DESARROLLO/DEMO — nunca correr esto contra una base de datos con
 usuarios reales en producción. Los conductores y rutas que crea están
 claramente marcados como "(demo)" en el nombre para poder identificarlos
@@ -10,7 +17,6 @@ y borrarlos después con `borrar_demo.py`.
 Uso:
     venv\\Scripts\\python.exe seed_demo.py
 """
-import json
 from datetime import datetime
 
 from sqlmodel import Session, select
@@ -54,12 +60,44 @@ DESTINOS = [
     (-33.5228, -70.5893, "Plaza La Florida, La Florida", "La Florida"),
 ]
 
+# Nombres de calle para variar las paradas dentro de cada comuna.
+CALLES_PENAFLOR = [
+    "Bernardo O'Higgins", "Balmaceda", "Portales", "Freire", "Independencia",
+    "Camino a Melipilla", "Santa Filomena", "Manuel Rodríguez", "Prat", "Los Aromos",
+]
+CALLES_POR_COMUNA = {
+    "Providencia": ["Providencia", "Suecia", "Holanda", "Bilbao", "Nueva de Lyon", "Ricardo Lyon", "Los Leones", "Antonio Varas"],
+    "Ñuñoa": ["Irarrázaval", "Grecia", "Sucre", "Diagonal Oriente", "Simón Bolívar"],
+    "Santiago": ["Alameda", "San Diego", "Cumming", "Huérfanos", "Estado"],
+    "Las Condes": ["Kennedy", "El Bosque", "Apoquindo", "Isidora Goyenechea", "Manquehue"],
+    "Maipú": ["5 de Abril", "Pajaritos", "Camino a Rinconada", "Los Pensamientos"],
+    "La Florida": ["Vicuña Mackenna", "Walker Martínez", "Departamental", "Rojas Magallanes"],
+}
+
 HORARIOS = ["07:30", "08:00", "08:15", "08:30", "09:00"]
 DIAS = [
     ["lunes", "martes", "miercoles", "jueves", "viernes"],
     ["lunes", "miercoles", "viernes"],
     ["martes", "jueves"],
 ]
+
+
+def generar_paradas(lat_base, lng_base, comuna, calles, cantidad, semilla):
+    """Puntos cercanos a (lat_base, lng_base), dentro de la misma comuna,
+    con nombres de calle variados. El "jitter" es determinístico (no
+    aleatorio) para que el script sea reproducible."""
+    paradas = []
+    for j in range(cantidad):
+        offset_lat = ((semilla + j * 2) % 7 - 3) * 0.006
+        offset_lng = ((semilla + j * 3) % 5 - 2) * 0.007
+        calle = calles[(semilla + j) % len(calles)]
+        paradas.append({
+            "lat": round(lat_base + offset_lat, 6),
+            "lng": round(lng_base + offset_lng, 6),
+            "direccion": f"{calle}, {comuna}",
+            "comuna": comuna,
+        })
+    return paradas
 
 
 def main():
@@ -88,9 +126,29 @@ def main():
             conductores.append(u)
 
         creadas = 0
+        total_paradas = 0
         for i, (destino_lat, destino_lng, destino_direccion, destino_comuna) in enumerate(DESTINOS):
             origen_lat, origen_lng, origen_direccion = ORIGENES_PENAFLOR[i]
             conductor = conductores[i % len(conductores)]
+
+            total_paradas_ruta = 5 + (i % 6)  # entre 5 y 10
+            n_origen = total_paradas_ruta // 2
+            n_destino = total_paradas_ruta - n_origen
+
+            paradas = (
+                generar_paradas(origen_lat, origen_lng, "Peñaflor", CALLES_PENAFLOR, n_origen, semilla=i)
+                + generar_paradas(
+                    destino_lat, destino_lng, destino_comuna,
+                    CALLES_POR_COMUNA[destino_comuna], n_destino, semilla=i + 100,
+                )
+            )
+            total_paradas += len(paradas)
+
+            geometria = (
+                [[origen_lat, origen_lng]]
+                + [[p["lat"], p["lng"]] for p in paradas]
+                + [[destino_lat, destino_lng]]
+            )
 
             ruta = Route(
                 conductor_id=conductor.id,
@@ -102,11 +160,11 @@ def main():
                 destino_lng=destino_lng,
                 destino_direccion=destino_direccion,
                 destino_comuna=destino_comuna,
-                paradas=[],
-                # Línea recta simplificada (no OSRM real) — suficiente para
-                # ver un pin y una línea en el mapa de búsqueda; no se usa
-                # para nada que dependa de la geometría exacta.
-                geometria=[[origen_lat, origen_lng], [destino_lat, destino_lng]],
+                paradas=paradas,
+                # Línea recta entre origen -> paradas -> destino en orden
+                # (no es ruta real de OSRM, pero alcanza para verse bien en
+                # el mapa de búsqueda; no depende de la geometría exacta).
+                geometria=geometria,
                 distancia_km=None,
                 duracion_min=None,
                 cupos_totales=(i % 4) + 1,
@@ -121,7 +179,10 @@ def main():
             creadas += 1
 
         session.commit()
-        print(f"Listo: {len(conductores)} conductores demo, {creadas} rutas demo creadas.")
+        print(
+            f"Listo: {len(conductores)} conductores demo, {creadas} rutas demo "
+            f"creadas ({total_paradas} paradas en total, entre 5 y 10 por ruta)."
+        )
 
 
 if __name__ == "__main__":

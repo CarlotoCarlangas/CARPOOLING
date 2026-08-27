@@ -217,6 +217,26 @@ en Ñuñoa/Santiago/Las Condes/Maipú/La Florida. Correr con
 después, `borrar_demo.py`. Estos scripts son solo para desarrollo — nunca
 correrlos contra datos reales de producción.
 
+**Cada ruta demo tiene entre 5 y 10 paradas** repartidas entre la comuna
+de origen (Peñaflor) y la de destino, a pedido del usuario: quería probar
+que las paradas cuenten como puntos de recogida/bajada válidos para el
+pasajero, no solo el origen/destino "oficial" de la ruta — esa lógica de
+matching ya existía en el backend (`buscar_rutas`), pero **no se veía en
+el mapa** porque `MapaBusqueda.jsx` solo dibujaba origen y destino. Se
+corrigió para que también dibuje cada parada (agrupada en el cluster
+verde u naranja según si su comuna coincide con el origen o el destino
+de esa ruta).
+
+**Tile provider — CARTO Voyager se rompió:** se había cambiado el mapa
+base a CARTO Voyager (estilo "tipo Uber") pero empezó a mostrar tiles con
+la leyenda "API KEY REQUIRED" (dejó de ser gratis sin registro). El
+usuario lo detectó probando desde otro dispositivo/red. Se revirtió a
+`tile.openstreetmap.org` en los 3 componentes de mapa — es el único
+proveedor gratis que se demostró 100% confiable durante toda la sesión.
+Si en el futuro se quiere un estilo más pulido, hay que sacar una API key
+gratuita con un proveedor serio (MapTiler, Stadia Maps) — no depender de
+un endpoint anónimo cuya política puede cambiar sin aviso.
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer

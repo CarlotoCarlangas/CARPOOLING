@@ -89,6 +89,18 @@ export default function MapaBusqueda({ rutas, circuloOrigen, centrarEn, ladoActi
           `<b>${r.conductor.nombre}</b><br/>Origen: ${r.origen_direccion}<br/>${r.cupos_disponibles} cupos disponibles<br/><a href="/rutas/${r.id}">Ver detalle →</a>`
         )
       );
+      // Las paradas también son puntos de recogida/bajada válidos — se
+      // dibujan igual que el origen o el destino "oficial", agrupadas en
+      // el cluster que corresponda según de qué comuna sean.
+      (r.paradas || []).forEach((p) => {
+        const esLadoDestino = p.comuna && p.comuna === r.destino_comuna;
+        const marcador = L.marker([p.lat, p.lng], {
+          icon: esLadoDestino ? iconoDestino : iconoOrigen,
+        }).bindPopup(
+          `<b>${r.conductor.nombre}</b><br/>Parada: ${p.direccion}<br/>${r.cupos_disponibles} cupos disponibles<br/><a href="/rutas/${r.id}">Ver detalle →</a>`
+        );
+        (esLadoDestino ? clusterDestino : clusterOrigen).addLayer(marcador);
+      });
       clusterDestino.addLayer(
         L.marker([r.destino_lat, r.destino_lng], { icon: iconoDestino }).bindPopup(
           `<b>${r.conductor.nombre}</b><br/>Destino: ${r.destino_direccion}<br/>${r.cupos_disponibles} cupos disponibles<br/><a href="/rutas/${r.id}">Ver detalle →</a>`
