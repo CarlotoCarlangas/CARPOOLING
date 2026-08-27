@@ -17,6 +17,9 @@ y borrarlos después con `borrar_demo.py`.
 Uso:
     venv\\Scripts\\python.exe seed_demo.py
 """
+import json
+import time
+import urllib.request
 from datetime import datetime
 
 from sqlmodel import Session, select
@@ -100,6 +103,31 @@ def generar_paradas(lat_base, lng_base, comuna, calles, cantidad, semilla):
     return paradas
 
 
+def calcular_ruta_real(puntos):
+    """Llama al mismo servidor OSRM público que usa el conductor real al
+    trazar su ruta, para que las rutas demo también sigan calles de verdad
+    en vez de una línea recta. `puntos` es una lista ordenada de
+    {lat, lng}. Si OSRM falla por lo que sea, devuelve None y quien llama
+    debe usar la línea recta como respaldo (mejor eso que romper el seed)."""
+    coords = ";".join(f"{p['lng']},{p['lat']}" for p in puntos)
+    url = f"https://router.project-osrm.org/route/v1/driving/{coords}?overview=full&geometries=geojson"
+    try:
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            data = json.loads(resp.read())
+        if data.get("code") != "Ok" or not data.get("routes"):
+            return None
+        ruta = data["routes"][0]
+        geometria = [[lat, lng] for lng, lat in ruta["geometry"]["coordinates"]]
+        return {
+            "geometria": geometria,
+            "distancia_km": round(ruta["distance"] / 1000, 1),
+            "duracion_min": round(ruta["duration"] / 60),
+        }
+    except Exception as e:
+        print(f"  (aviso: OSRM falló para esta ruta, uso línea recta — {e})")
+        return None
+
+
 def main():
     with Session(engine) as session:
         conductores = []
@@ -144,11 +172,24 @@ def main():
             )
             total_paradas += len(paradas)
 
-            geometria = (
-                [[origen_lat, origen_lng]]
-                + [[p["lat"], p["lng"]] for p in paradas]
-                + [[destino_lat, destino_lng]]
+            puntos_ordenados = (
+                [{"lat": origen_lat, "lng": origen_lng}]
+                + [{"lat": p["lat"], "lng": p["lng"]} for p in paradas]
+                + [{"lat": destino_lat, "lng": destino_lng}]
             )
+            print(f"  calculando ruta real por calles {i + 1}/10 ({destino_comuna})...")
+            real = calcular_ruta_real(puntos_ordenados)
+            time.sleep(0.5)  # no saturar el servidor público de OSRM
+
+            if real:
+                geometria = real["geometria"]
+                distancia_km = real["distancia_km"]
+                duracion_min = real["duracion_min"]
+            else:
+                # Respaldo si OSRM no responde: línea recta entre los puntos.
+                geometria = [[p["lat"], p["lng"]] for p in puntos_ordenados]
+                distancia_km = None
+                duracion_min = None
 
             ruta = Route(
                 conductor_id=conductor.id,
@@ -161,12 +202,9 @@ def main():
                 destino_direccion=destino_direccion,
                 destino_comuna=destino_comuna,
                 paradas=paradas,
-                # Línea recta entre origen -> paradas -> destino en orden
-                # (no es ruta real de OSRM, pero alcanza para verse bien en
-                # el mapa de búsqueda; no depende de la geometría exacta).
                 geometria=geometria,
-                distancia_km=None,
-                duracion_min=None,
+                distancia_km=distancia_km,
+                duracion_min=duracion_min,
                 cupos_totales=(i % 4) + 1,
                 cupos_disponibles=(i % 4) + 1,
                 precio_sugerido=1500 + (i * 150),

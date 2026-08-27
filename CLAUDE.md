@@ -237,6 +237,26 @@ Si en el futuro se quiere un estilo más pulido, hay que sacar una API key
 gratuita con un proveedor serio (MapTiler, Stadia Maps) — no depender de
 un endpoint anónimo cuya política puede cambiar sin aviso.
 
+**Búsqueda progresiva + layout lado a lado:** el usuario notó que había
+que elegir origen Y destino antes de ver nada en el mapa. Se relajó el
+gatillo de búsqueda en `Buscar.jsx` para que dispare con solo UNO de los
+dos lados elegido (el backend ya soportaba esto — `buscar_rutas` trata un
+filtro ausente como "no restringe"). También se reordenó el layout: el
+mapa y la lista de rutas candidatas (conductor, paradas, precio) ahora
+van lado a lado (`grid-cols-[3fr_2fr]`, se apila en pantallas angostas)
+en vez de la lista abajo del mapa requiriendo scroll.
+
+**Rutas demo con geometría real de OSRM:** las 10 rutas de
+`seed_demo.py` originalmente conectaban origen→paradas→destino con líneas
+rectas. El usuario notó que en el detalle se veía una sola línea recta en
+vez de una ruta real (a diferencia de su propia ruta, creada a mano con
+clics + OSRM). Se agregó `calcular_ruta_real()` en `seed_demo.py`, que le
+pide a `router.project-osrm.org` la ruta real pasando por todos los
+puntos en orden (mismo servidor que usa el conductor real al crear una
+ruta a mano) — con respaldo a línea recta si OSRM no responde. De paso
+ahora `distancia_km`/`duracion_min` quedan con datos reales en vez de
+`None`.
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer

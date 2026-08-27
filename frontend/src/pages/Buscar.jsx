@@ -182,7 +182,12 @@ export default function Buscar() {
 
   useEffect(() => {
     const hayFiltroOrigen = comunaOrigen || puntoOrigen;
-    if (!hayFiltroOrigen || !comunaDestino) {
+    const hayFiltroDestino = comunaDestino;
+    // Ya no se exige tener AMBOS lados elegidos: apenas el pasajero marca
+    // uno solo (origen o destino), se buscan y muestran las rutas que
+    // calzan con ese lado — así puede ir explorando de a poco en vez de
+    // completar todo el formulario primero.
+    if (!hayFiltroOrigen && !hayFiltroDestino) {
       setResultados([]);
       return;
     }
@@ -208,13 +213,16 @@ export default function Buscar() {
     setLadoActivo(null);
   };
 
+  const hayAlgunFiltro = comunaOrigen || puntoOrigen || comunaDestino;
+
   return (
-    <div className="max-w-3xl mx-auto p-6 my-6">
+    <div className="max-w-6xl mx-auto p-6 my-6">
       <h1 className="text-2xl font-bold mb-1">Buscar viaje</h1>
       <p className="text-sm text-gray-600 mb-4">
-        Elige comuna de origen y destino. En el origen puedes afinar más con
-        una dirección o marcándola en el mapa; en el destino, simplemente
-        eliges entre los puntos disponibles.
+        Elige comuna de origen y/o destino — con solo una ya vas a ver opciones
+        en el mapa. En el origen puedes afinar más con una dirección o
+        marcándola en el mapa; en el destino, simplemente eliges entre los
+        puntos disponibles.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -250,52 +258,61 @@ export default function Buscar() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-        <MapaBusqueda
-          rutas={resultados}
-          circuloOrigen={puntoOrigen ? { ...puntoOrigen, radioM: radioOrigenM } : null}
-          centrarEn={enfoqueDestino}
-          ladoActivo={ladoActivo}
-          onClickMapa={alClicMapa}
-        />
-      </div>
-
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-
-      {!comunaOrigen && !puntoOrigen && !comunaDestino && (
-        <p className="text-center text-gray-500 text-sm">
-          Elige al menos una comuna de origen y una de destino para ver viajes.
+      {!hayAlgunFiltro && (
+        <p className="text-center text-gray-500 text-sm mb-3">
+          Elige al menos una comuna (origen o destino) para ver viajes en el mapa.
         </p>
       )}
 
-      {buscando && <p className="text-center text-gray-500 text-sm">Buscando...</p>}
+      {/* Mapa y opciones lado a lado: en pantallas angostas se apilan */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <MapaBusqueda
+            rutas={resultados}
+            circuloOrigen={puntoOrigen ? { ...puntoOrigen, radioM: radioOrigenM } : null}
+            centrarEn={enfoqueDestino}
+            ladoActivo={ladoActivo}
+            onClickMapa={alClicMapa}
+          />
+        </div>
 
-      {!buscando && resultados.length === 0 && (comunaOrigen || puntoOrigen) && comunaDestino && (
-        <p className="text-center text-gray-500 text-sm">
-          No hay viajes que coincidan todavía.{" "}
-          {puntoOrigen && "Prueba ampliando el radio caminable arriba."}
-        </p>
-      )}
+        <div className="lg:max-h-[420px] lg:overflow-y-auto space-y-2 pr-1">
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {buscando && <p className="text-center text-gray-500 text-sm">Buscando...</p>}
 
-      <div className="space-y-2">
-        {resultados.map((r) => (
-          <Link
-            key={r.id}
-            to={`/rutas/${r.id}`}
-            className="block bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-semibold">{r.origen_direccion}</p>
-                <p className="text-sm text-gray-500">→ {r.destino_direccion}</p>
-              </div>
-              <span className="text-taco font-bold">${r.precio_pasajero.toLocaleString("es-CL")}</span>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {r.conductor.nombre} — {r.cupos_disponibles} cupos — {r.hora_salida}
+          {!buscando && hayAlgunFiltro && resultados.length === 0 && (
+            <p className="text-center text-gray-500 text-sm">
+              No hay viajes que coincidan todavía.{" "}
+              {puntoOrigen && "Prueba ampliando el radio caminable arriba."}
             </p>
-          </Link>
-        ))}
+          )}
+
+          {resultados.map((r) => (
+            <Link
+              key={r.id}
+              to={`/rutas/${r.id}`}
+              className="block bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition border border-gray-100"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-semibold">{r.origen_direccion}</p>
+                  <p className="text-sm text-gray-500">→ {r.destino_direccion}</p>
+                </div>
+                <span className="text-taco font-bold whitespace-nowrap">
+                  ${r.precio_pasajero.toLocaleString("es-CL")}
+                </span>
+              </div>
+              {r.paradas.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {r.paradas.length} parada{r.paradas.length === 1 ? "" : "s"} en el camino
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                🧑 {r.conductor.nombre} · 💺 {r.cupos_disponibles} cupos · 🕐 {r.hora_salida}
+              </p>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
