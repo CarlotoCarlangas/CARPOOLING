@@ -339,6 +339,32 @@ encima de la selección. Se arregló con un ref `saltarBusquedaRef` que
 el `useEffect` del debounce revisa para no re-buscar cuando el cambio
 de texto vino de una selección, no de que el usuario tipeó.
 
+**Mapa a pantalla completa (estilo Uber):** el usuario mandó una captura
+real de la app de Uber y pidió que el mapa "sea nuestra propuesta de
+valor también" — ocupando toda la pantalla, con el resto de la interfaz
+flotando encima (chips, botón de volver, hoja inferior con los
+controles/resultados), en vez del layout anterior de tarjeta centrada
+con el mapa como un elemento más entre otros. Cambios:
+- `App.jsx`: el layout raíz pasó a `h-dvh flex flex-col overflow-hidden`
+  con el `<Navbar/>` fijo arriba y `<main className="flex-1 min-h-0
+  overflow-y-auto">` envolviendo las rutas — así cualquier página puede
+  pedir `h-full` para ocupar exactamente el alto que sobra bajo el
+  Navbar, sin romper el scroll normal de las páginas que no lo usan
+  (se probó que `/rutas` y `/` siguen scrolleando igual que antes).
+- `Buscar.jsx`: los 4 pasos ahora usan `PantallaConMapa` (mapa de fondo
+  a pantalla completa) + `HojaInferior` (panel blanco que sube desde
+  abajo, con scroll propio) + `BotonFlotante`/chips flotando sobre el
+  mapa. El mapa ya no es una caja con borde de 420px, es el fondo
+  completo de cada pantalla.
+- `MapaBusqueda.jsx`: el contenedor pasó a `w-full h-full` (llena a su
+  padre en vez de altura fija) y se desactivaron los botones +/- de
+  zoom (`zoomControl: false`) — en pantalla completa se hace zoom con
+  los dedos, como en Uber; los botones flotantes hubieran chocado con
+  el botón de volver.
+- Verificado que el mapa efectivamente llena el viewport completo bajo
+  el Navbar (medido con getBoundingClientRect) y que no aparece scroll
+  de página (`document.documentElement.scrollHeight === window.innerHeight`).
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer

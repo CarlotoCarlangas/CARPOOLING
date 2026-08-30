@@ -7,6 +7,52 @@ import MapaBusqueda from "../components/MapaBusqueda";
 import MapaPunto from "../components/MapaPunto";
 
 const RADIO_DEFECTO_M = 200;
+const RADIO_PREVISUALIZACION_M = 350;
+
+/**
+ * El mapa ocupa toda la pantalla (estilo apps de viaje tipo Uber — "el
+ * mapa es la propuesta de valor") y el resto de la interfaz flota
+ * encima: una hoja que sube desde abajo con los controles/resultados, y
+ * botones sueltos (volver, chips) sobre el mapa mismo.
+ */
+function PantallaConMapa({ mapa, children }) {
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-gray-200">
+      <div className="absolute inset-0">{mapa}</div>
+      {children}
+    </div>
+  );
+}
+
+function HojaInferior({ children, maxAlturaClase = "max-h-[50vh]" }) {
+  return (
+    <div
+      className={`absolute left-0 right-0 bottom-0 z-10 bg-white rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,.18)] pt-3 pb-5 px-5 overflow-y-auto ${maxAlturaClase}`}
+    >
+      <div className="w-9 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
+      {children}
+    </div>
+  );
+}
+
+function BotonFlotante({ onClick, children, claseExtra = "" }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`absolute z-10 w-11 h-11 rounded-full bg-white shadow-lg flex items-center justify-center text-gray-700 ${claseExtra}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function FlechaVolver() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
 
 /**
  * Campo de dirección con autocompletado + respaldo de marcar en el mapa.
@@ -113,39 +159,50 @@ function CampoDireccion({ placeholder, comuna, valor, onElegir }) {
 
 function PasoDestino({ comunas, comunaDestino, setComunaDestino, puntoDestino, setPuntoDestino, onContinuar }) {
   return (
-    <div className="max-w-md mx-auto p-6">
-      <p className="text-xs font-bold text-taco uppercase tracking-wide">Paso 1 de 2</p>
-      <h1 className="text-2xl font-bold mt-1 mb-5">¿A dónde quieres llegar?</h1>
+    <PantallaConMapa
+      mapa={
+        <MapaBusqueda
+          rutas={[]}
+          lado="destino"
+          foco={puntoDestino}
+          radioM={puntoDestino ? RADIO_PREVISUALIZACION_M : null}
+        />
+      }
+    >
+      <HojaInferior maxAlturaClase="max-h-[85vh]">
+        <p className="text-xs font-bold text-taco uppercase tracking-wide">Paso 1 de 2</p>
+        <h1 className="text-xl font-bold mt-1 mb-4">¿A dónde quieres llegar?</h1>
 
-      <select
-        value={comunaDestino}
-        onChange={(e) => setComunaDestino(e.target.value)}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 mb-3 text-sm"
-      >
-        <option value="">Comuna de destino...</option>
-        {comunas.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
+        <select
+          value={comunaDestino}
+          onChange={(e) => setComunaDestino(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 mb-3 text-sm"
+        >
+          <option value="">Comuna de destino...</option>
+          {comunas.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
 
-      <CampoDireccion
-        placeholder="Escribe tu dirección de destino"
-        comuna={comunaDestino}
-        valor={puntoDestino}
-        onElegir={(s) => {
-          setPuntoDestino(s);
-          if (s.comuna) setComunaDestino(s.comuna);
-        }}
-      />
+        <CampoDireccion
+          placeholder="Escribe tu dirección de destino"
+          comuna={comunaDestino}
+          valor={puntoDestino}
+          onElegir={(s) => {
+            setPuntoDestino(s);
+            if (s.comuna) setComunaDestino(s.comuna);
+          }}
+        />
 
-      <button
-        onClick={onContinuar}
-        disabled={!puntoDestino}
-        className="w-full bg-taco text-white py-3 rounded-lg font-semibold mt-5 disabled:opacity-40"
-      >
-        Continuar · Elegir origen
-      </button>
-    </div>
+        <button
+          onClick={onContinuar}
+          disabled={!puntoDestino}
+          className="w-full bg-taco text-white py-3 rounded-lg font-semibold mt-4 disabled:opacity-40"
+        >
+          Continuar · Elegir origen
+        </button>
+      </HojaInferior>
+    </PantallaConMapa>
   );
 }
 
@@ -179,74 +236,82 @@ function PasoOrigen({
   }, []);
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <button onClick={onVolver} className="text-gray-500 text-lg" aria-label="Volver">←</button>
-        <div>
-          <p className="text-xs font-bold text-taco uppercase tracking-wide">Paso 2 de 2</p>
-          <h1 className="text-xl font-bold">¿Desde dónde sales?</h1>
+    <PantallaConMapa
+      mapa={
+        <MapaBusqueda
+          rutas={[]}
+          lado="origen"
+          foco={puntoOrigen}
+          radioM={puntoOrigen ? RADIO_PREVISUALIZACION_M : null}
+        />
+      }
+    >
+      <BotonFlotante onClick={onVolver} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>
+
+      <HojaInferior maxAlturaClase="max-h-[85vh]">
+        <p className="text-xs font-bold text-taco uppercase tracking-wide">Paso 2 de 2</p>
+        <h1 className="text-xl font-bold mt-1 mb-3">¿Desde dónde sales?</h1>
+
+        <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2.5 mb-3 text-sm">
+          <span className="w-2 h-2 rounded-full bg-taco flex-shrink-0"></span>
+          <span className="flex-1 truncate">
+            <span className="text-gray-500">Destino: </span>
+            {puntoDestino?.direccion}
+          </span>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm px-3 py-2.5 mb-4 text-sm">
-        <span className="w-2 h-2 rounded-full bg-taco flex-shrink-0"></span>
-        <span className="flex-1 truncate">
-          <span className="text-gray-500">Destino: </span>
-          {puntoDestino?.direccion}
-        </span>
-      </div>
-
-      {!manual && (
-        <div className="bg-white rounded-lg shadow-sm p-3 mb-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0 text-green-700">📍</div>
-          <div className="flex-1 min-w-0">
-            {geoEstado === "buscando" && <p className="text-sm text-gray-500">Buscando tu ubicación...</p>}
-            {geoEstado === "ok" && (
-              <>
-                <p className="text-sm font-semibold truncate">Detectamos que estás en {comunaOrigen || "tu ubicación"}</p>
-                <p className="text-xs text-gray-400 truncate">{puntoOrigen?.direccion}</p>
-              </>
-            )}
-            {geoEstado === "error" && <p className="text-sm text-gray-500">No pudimos acceder a tu ubicación</p>}
+        {!manual && (
+          <div className="bg-gray-50 rounded-lg p-3 mb-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0 text-green-700">📍</div>
+            <div className="flex-1 min-w-0">
+              {geoEstado === "buscando" && <p className="text-sm text-gray-500">Buscando tu ubicación...</p>}
+              {geoEstado === "ok" && (
+                <>
+                  <p className="text-sm font-semibold truncate">Detectamos que estás en {comunaOrigen || "tu ubicación"}</p>
+                  <p className="text-xs text-gray-400 truncate">{puntoOrigen?.direccion}</p>
+                </>
+              )}
+              {geoEstado === "error" && <p className="text-sm text-gray-500">No pudimos acceder a tu ubicación</p>}
+            </div>
+            <button onClick={() => setManual(true)} className="text-xs text-taco-dark font-semibold whitespace-nowrap">
+              Cambiar
+            </button>
           </div>
-          <button onClick={() => setManual(true)} className="text-xs text-taco-dark font-semibold whitespace-nowrap">
-            Cambiar
-          </button>
-        </div>
-      )}
+        )}
 
-      {manual && (
-        <div className="mb-4 space-y-2">
-          <select
-            value={comunaOrigen}
-            onChange={(e) => setComunaOrigen(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
-          >
-            <option value="">Comuna de origen...</option>
-            {comunas.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <CampoDireccion
-            placeholder="Escribe tu dirección de origen"
-            comuna={comunaOrigen}
-            valor={puntoOrigen}
-            onElegir={(s) => {
-              setPuntoOrigen(s);
-              if (s.comuna) setComunaOrigen(s.comuna);
-            }}
-          />
-        </div>
-      )}
+        {manual && (
+          <div className="mb-4 space-y-2">
+            <select
+              value={comunaOrigen}
+              onChange={(e) => setComunaOrigen(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+            >
+              <option value="">Comuna de origen...</option>
+              {comunas.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <CampoDireccion
+              placeholder="Escribe tu dirección de origen"
+              comuna={comunaOrigen}
+              valor={puntoOrigen}
+              onElegir={(s) => {
+                setPuntoOrigen(s);
+                if (s.comuna) setComunaOrigen(s.comuna);
+              }}
+            />
+          </div>
+        )}
 
-      <button
-        onClick={onContinuar}
-        disabled={!puntoOrigen}
-        className="w-full bg-taco text-white py-3 rounded-lg font-semibold disabled:opacity-40"
-      >
-        Ver viajes disponibles
-      </button>
-    </div>
+        <button
+          onClick={onContinuar}
+          disabled={!puntoOrigen}
+          className="w-full bg-taco text-white py-3 rounded-lg font-semibold disabled:opacity-40"
+        >
+          Ver viajes disponibles
+        </button>
+      </HojaInferior>
+    </PantallaConMapa>
   );
 }
 
@@ -302,7 +367,7 @@ function TarjetaRuta({ ruta, seleccionada, onClick, onQuitar, onElegir }) {
 
 function RadioSlider({ etiqueta, valor, setValor, colorClase }) {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-3 mb-3">
+    <div className="bg-gray-50 rounded-lg p-3 mb-3">
       <div className="flex justify-between items-baseline text-xs mb-1">
         <span className="font-semibold text-gray-700">{etiqueta}</span>
         <span className={`font-bold ${colorClase}`}>{valor} m</span>
@@ -316,6 +381,15 @@ function RadioSlider({ etiqueta, valor, setValor, colorClase }) {
         onChange={(e) => setValor(Number(e.target.value))}
         className="w-full"
       />
+    </div>
+  );
+}
+
+function ChipDireccion({ color, texto, claseExtra }) {
+  return (
+    <div className={`flex-1 flex items-center gap-1.5 bg-white/95 backdrop-blur rounded-full px-3 py-2 shadow-md text-xs ${claseExtra}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${color}`}></span>
+      <span className="truncate text-gray-700">{texto}</span>
     </div>
   );
 }
@@ -394,94 +468,92 @@ export default function Buscar() {
 
   if (paso === 4 && rutaElegida) {
     return (
-      <div className="max-w-md mx-auto p-6">
-        <button onClick={() => setPaso(3)} className="text-sm text-gray-500 mb-3">← Volver a los viajes</button>
+      <PantallaConMapa
+        mapa={
+          <MapaBusqueda
+            rutas={[rutaElegida]}
+            lado="origen"
+            foco={puntoOrigen}
+            radioM={radioOrigenM}
+            resaltadaId={rutaElegida.id}
+          />
+        }
+      >
+        <BotonFlotante onClick={() => setPaso(3)} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>
 
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
-          <p className="text-sm font-bold text-gray-800">Ruta de {rutaElegida.conductor.nombre} seleccionada</p>
-          <p className="text-xs text-orange-800 mt-0.5">Ahora elige dónde te recoge cerca de tu origen</p>
+        <div className="absolute left-20 right-4 top-4 z-10">
+          <div className="bg-white/95 backdrop-blur rounded-xl px-3.5 py-2.5 shadow-md">
+            <p className="text-xs font-bold text-gray-800 truncate">Ruta de {rutaElegida.conductor.nombre} elegida</p>
+            <p className="text-[11px] text-gray-500">Elige tu punto de recogida cerca de tu origen</p>
+          </div>
         </div>
 
-        <RadioSlider etiqueta="Radio desde tu origen" valor={radioOrigenM} setValor={setRadioOrigenM} colorClase="text-green-700" />
-
-        <MapaBusqueda
-          rutas={[rutaElegida]}
-          lado="origen"
-          foco={puntoOrigen}
-          radioM={radioOrigenM}
-          resaltadaId={rutaElegida.id}
-        />
-
-        <p className="text-center text-xs text-gray-500 mt-3">Elige tu punto de recogida en este viaje</p>
-
-        <button
-          onClick={() => navigate(`/rutas/${rutaElegida.id}`)}
-          className="w-full bg-taco text-white py-3 rounded-lg font-semibold mt-4"
-        >
-          Ver detalle del viaje
-        </button>
-      </div>
+        <HojaInferior>
+          <RadioSlider etiqueta="Radio desde tu origen" valor={radioOrigenM} setValor={setRadioOrigenM} colorClase="text-green-700" />
+          <button
+            onClick={() => navigate(`/rutas/${rutaElegida.id}`)}
+            className="w-full bg-taco text-white py-3 rounded-lg font-semibold"
+          >
+            Ver detalle del viaje
+          </button>
+        </HojaInferior>
+      </PantallaConMapa>
     );
   }
 
   // paso === 3
   return (
-    <div className="max-w-md mx-auto p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => setPaso(2)} className="text-gray-500 text-lg" aria-label="Volver">←</button>
-        <h1 className="text-lg font-bold text-gray-800">Viajes disponibles</h1>
+    <PantallaConMapa
+      mapa={
+        <MapaBusqueda
+          rutas={resultados}
+          lado="destino"
+          foco={puntoDestino}
+          radioM={radioDestinoM}
+          resaltadaId={rutaResaltadaId}
+          onClickPin={setRutaResaltadaId}
+        />
+      }
+    >
+      <BotonFlotante onClick={() => setPaso(2)} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>
+
+      <div className="absolute left-20 right-4 top-4 flex gap-2 z-10">
+        <ChipDireccion color="bg-green-600" texto={puntoOrigen?.direccion} />
+        <ChipDireccion color="bg-taco" texto={puntoDestino?.direccion} claseExtra="text-taco-dark font-medium" />
       </div>
 
-      <div className="flex gap-2 mb-3">
-        <div className="flex-1 flex items-center gap-1.5 bg-gray-100 rounded-lg px-2.5 py-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-600 flex-shrink-0"></span>
-          <span className="text-xs text-gray-700 truncate">{puntoOrigen?.direccion}</span>
-        </div>
-        <div className="flex-1 flex items-center gap-1.5 bg-orange-50 rounded-lg px-2.5 py-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-taco flex-shrink-0"></span>
-          <span className="text-xs text-taco-dark font-medium truncate">{puntoDestino?.direccion}</span>
-        </div>
-      </div>
+      <HojaInferior maxAlturaClase="max-h-[50vh]">
+        <RadioSlider etiqueta="Radio desde tu destino" valor={radioDestinoM} setValor={setRadioDestinoM} colorClase="text-taco" />
 
-      <RadioSlider etiqueta="Radio desde tu destino" valor={radioDestinoM} setValor={setRadioDestinoM} colorClase="text-taco" />
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {buscando && <p className="text-center text-sm text-gray-500">Buscando...</p>}
+        {!buscando && resultados.length === 0 && (
+          <p className="text-center text-sm text-gray-500">
+            No hay viajes dentro de este radio. Prueba ampliándolo arriba.
+          </p>
+        )}
 
-      <MapaBusqueda
-        rutas={resultados}
-        lado="destino"
-        foco={puntoDestino}
-        radioM={radioDestinoM}
-        resaltadaId={rutaResaltadaId}
-        onClickPin={setRutaResaltadaId}
-      />
-
-      {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
-      {buscando && <p className="text-center text-sm text-gray-500 mt-3">Buscando...</p>}
-      {!buscando && resultados.length === 0 && (
-        <p className="text-center text-sm text-gray-500 mt-3">
-          No hay viajes dentro de este radio. Prueba ampliándolo arriba.
-        </p>
-      )}
-
-      {resultados.length > 0 && (
-        <div className="mt-3">
-          <p className="text-xs font-semibold text-gray-500 mb-2">{resultados.length} viajes dentro del radio</p>
-          <div className="flex gap-2.5 overflow-x-auto pb-1">
-            {resultados.map((r) => (
-              <TarjetaRuta
-                key={r.id}
-                ruta={r}
-                seleccionada={r.id === rutaResaltadaId}
-                onClick={() => setRutaResaltadaId(r.id)}
-                onQuitar={() => setRutaResaltadaId(null)}
-                onElegir={() => {
-                  setRutaElegidaId(r.id);
-                  setPaso(4);
-                }}
-              />
-            ))}
+        {resultados.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-2">{resultados.length} viajes dentro del radio</p>
+            <div className="flex gap-2.5 overflow-x-auto pb-1">
+              {resultados.map((r) => (
+                <TarjetaRuta
+                  key={r.id}
+                  ruta={r}
+                  seleccionada={r.id === rutaResaltadaId}
+                  onClick={() => setRutaResaltadaId(r.id)}
+                  onQuitar={() => setRutaResaltadaId(null)}
+                  onElegir={() => {
+                    setRutaElegidaId(r.id);
+                    setPaso(4);
+                  }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </HojaInferior>
+    </PantallaConMapa>
   );
 }

@@ -71,7 +71,10 @@ export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, o
   onClickPinRef.current = onClickPin;
 
   useEffect(() => {
-    const mapa = L.map(contenedorRef.current).setView([-33.53, -70.8], 11);
+    // Sin botones de +/- : el mapa ocupa toda la pantalla (estilo Uber) y
+    // se hace zoom con los dedos (pinch) o la rueda del mouse, no con
+    // controles flotantes que competirían con el resto de la interfaz.
+    const mapa = L.map(contenedorRef.current, { zoomControl: false }).setView([-33.53, -70.8], 11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; colaboradores de OpenStreetMap",
       maxZoom: 19,
@@ -139,5 +142,5 @@ export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, o
     }
   }, [rutas, lado, foco, radioM, resaltadaId]);
 
-  return <div ref={contenedorRef} className="w-full h-[420px] rounded-lg border border-gray-300" />;
+  return <div ref={contenedorRef} className="w-full h-full" />;
 }
