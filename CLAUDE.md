@@ -496,3 +496,52 @@ completo, a pedido explícito del usuario:
 Verificado en el navegador: navbar sin "Ver rutas", `/rutas` (sin id)
 ya no rompe nada (no hay contenido, pero tampoco crashea), y
 `/rutas/1` (detalle) sigue funcionando con el nuevo link de vuelta.
+
+## Sesión: origen simplificado a solo comuna + elegir parada real al final
+
+Cambio de flujo pedido explícitamente por el usuario: "no tiene mucho
+sentido colocar el origen del pasajero si igual debe moverse" — como el
+pasajero de todas formas tiene que caminar hasta una parada del
+conductor, pedirle una dirección exacta (o geolocalizarlo) para el
+origen era una fricción sin beneficio real. Nuevo flujo:
+
+1. **Paso 1 (destino)** — sin cambios: comuna + dirección/punto exacto.
+2. **Paso 2 (origen)** — YA NO pide geolocalización ni dirección exacta,
+   **solo la comuna** (un `<select>`). Se eliminó toda la lógica de
+   `obtenerUbicacionActual()` / `direccionDesdeCoordenadas()` para el
+   origen, el estado `manual`/`geoEstado`, y el servicio completo
+   `services/geolocalizacion.js` (ya no lo usa nadie, se borró).
+3. **Paso 3** — sin cambios funcionales: viajes filtrados por destino
+   (radio ajustable) + comuna de origen. El chip de "origen" en el mapa
+   ahora dice "Desde {comuna}" en vez de una dirección, porque ya no
+   hay un punto exacto que mostrar.
+4. **Paso 4 (rediseñado)** — antes mostraba un círculo de radio
+   ajustable alrededor del origen del pasajero; ahora muestra
+   **las paradas reales de ESE viaje que caen en la comuna del
+   pasajero** (el punto de partida oficial del conductor, si está en
+   esa comuna, más sus paradas intermedias ahí) como pines en el mapa
+   Y como tarjetas seleccionables debajo (mapa + lista, sincronizados,
+   mismo patrón que el paso 3) — el pasajero elige un punto concreto,
+   no un radio. El botón "Ver detalle del viaje" queda deshabilitado
+   hasta que elige una parada.
+
+Cambios técnicos:
+- `MapaBusqueda.jsx` ahora tiene dos modos: el modo "rutas" de siempre
+  (varias rutas + círculo de radio) y un modo nuevo "puntos" (`puntos`,
+  `geometria`, `colorPuntos`) que dibuja los puntos de UNA sola ruta ya
+  elegida, sin círculo — para el paso 4.
+- `Buscar.jsx`: se eliminó el estado `puntoOrigen`/`radioOrigenM`, se
+  agregó `puntoEmbarqueId` y el cálculo de `puntosEmbarque` (combina
+  `ruta.origen_*` si su comuna coincide, más `ruta.paradas` filtradas
+  por comuna). Nuevo componente `TarjetaParada` (mismo estilo visual
+  que `TarjetaRuta` pero para un punto, no un viaje).
+- La búsqueda del paso 3 ahora dispara con `comuna_origen` en vez de
+  con el punto de origen (`paso >= 3 && puntoDestino && comunaOrigen`).
+
+Verificado end-to-end en el navegador: flujo completo con la ruta demo
+de María Fernández (Peñaflor→Providencia) — paso 2 solo pide comuna,
+paso 4 muestra las 3 paradas reales de esa ruta en Peñaflor ("Plaza de
+Peñaflor", "Bernardo O'Higgins", "Balmaceda"), el botón queda
+deshabilitado hasta elegir una, y al elegir "Plaza de Peñaflor" navega
+correctamente al detalle del viaje. Probado también en viewport móvil
+sin problemas de layout.

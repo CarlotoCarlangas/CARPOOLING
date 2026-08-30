@@ -56,14 +56,26 @@ function iconoPin({ color, resaltado }) {
 }
 
 /**
- * Mapa de resultados del pasajero: dibuja las rutas completas (línea +
- * el punto más cercano al foco elegido) y un círculo de radio caminable
- * ajustable alrededor de ese foco (destino u origen, según `lado`). La
- * ruta con id === `resaltadaId` se dibuja destacada (pin grande, con
- * glow y check) — pensado para sincronizarse con una lista de tarjetas
- * fuera del mapa.
+ * Mapa de resultados del pasajero. Tiene dos modos, según qué props se
+ * pasen:
+ *
+ * - Modo RUTAS (`rutas`): dibuja varias rutas completas (línea + el
+ *   punto más cercano al foco elegido) y un círculo de radio caminable
+ *   ajustable alrededor de ese foco (destino u origen, según `lado`).
+ *   Se usa en los pasos 1, 2 y 3 (elegir destino/origen y ver los
+ *   viajes disponibles).
+ * - Modo PUNTOS (`puntos`): dibuja los puntos de UNA sola ruta ya
+ *   elegida (sus paradas dentro de la comuna de origen del pasajero,
+ *   más su punto de partida si corresponde) para que el pasajero
+ *   elija dónde subir — sin círculo de radio, porque son paradas
+ *   concretas del conductor, no una zona a explorar. Se usa en el
+ *   paso 4.
+ *
+ * En ambos modos, el elemento con id === `resaltadaId` se dibuja
+ * destacado (pin grande, con glow y check) — pensado para
+ * sincronizarse con una lista de tarjetas fuera del mapa.
  */
-export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, onClickPin, onClickMapa }) {
+export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, onClickPin, onClickMapa, puntos, geometria, colorPuntos }) {
   const contenedorRef = useRef(null);
   const mapaRef = useRef(null);
   const capasRef = useRef([]);
@@ -100,7 +112,27 @@ export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, o
       capasRef.current.push(capa);
     };
 
-    const color = lado === "destino" ? "#e85d2f" : "#16a34a";
+    const color = colorPuntos || (lado === "destino" ? "#e85d2f" : "#16a34a");
+
+    if (puntos) {
+      if (geometria?.length) {
+        agregar(L.polyline(geometria, { color: "#94a3b8", weight: 4, opacity: 0.7 }));
+      }
+      puntos.forEach((p) => {
+        const destacado = p.id === resaltadaId;
+        const marcador = L.marker([p.lat, p.lng], { icon: iconoPin({ color, resaltado: destacado }) })
+          .bindPopup(p.direccion)
+          .on("click", () => onClickPinRef.current?.(p.id));
+        agregar(marcador);
+      });
+      if (puntos.length) {
+        mapa.fitBounds(
+          puntos.map((p) => [p.lat, p.lng]),
+          { padding: [40, 40], maxZoom: 16 }
+        );
+      }
+      return;
+    }
 
     (rutas || []).forEach((r) => {
       const destacada = r.id === resaltadaId;
@@ -140,13 +172,13 @@ export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, o
     if (circulo) {
       mapa.fitBounds(circulo.getBounds(), { padding: [30, 30], maxZoom: 16 });
     } else if (rutas?.length) {
-      const puntos = rutas.map((r) => {
+      const centros = rutas.map((r) => {
         const p = puntoRelevante(r, foco, lado);
         return [p.lat, p.lng];
       });
-      mapa.fitBounds(puntos, { padding: [40, 40], maxZoom: 14 });
+      mapa.fitBounds(centros, { padding: [40, 40], maxZoom: 14 });
     }
-  }, [rutas, lado, foco, radioM, resaltadaId]);
+  }, [rutas, lado, foco, radioM, resaltadaId, puntos, geometria, colorPuntos]);
 
   return <div ref={contenedorRef} className="w-full h-full" />;
 }

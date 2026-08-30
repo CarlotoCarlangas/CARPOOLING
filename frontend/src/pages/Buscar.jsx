@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { buscarDireccion, direccionDesdeCoordenadas } from "../services/geocoding";
-import { obtenerUbicacionActual } from "../services/geolocalizacion";
 import MapaBusqueda from "../components/MapaBusqueda";
 
 const RADIO_DEFECTO_M = 200;
@@ -219,58 +218,29 @@ function PasoDestino({ comunas, comunaDestino, setComunaDestino, puntoDestino, s
   );
 }
 
-function PasoOrigen({
-  comunas,
-  puntoDestino,
-  comunaOrigen,
-  setComunaOrigen,
-  puntoOrigen,
-  setPuntoOrigen,
-  onVolver,
-  onContinuar,
-}) {
-  const [geoEstado, setGeoEstado] = useState(puntoOrigen ? "ok" : "buscando");
-  const [manual, setManual] = useState(false);
-
-  useEffect(() => {
-    if (puntoOrigen) return;
-    obtenerUbicacionActual()
-      .then(async ({ lat, lng }) => {
-        const { direccion, comuna } = await direccionDesdeCoordenadas(lat, lng);
-        setPuntoOrigen({ lat, lng, direccion, comuna });
-        if (comuna) setComunaOrigen(comuna);
-        setGeoEstado("ok");
-      })
-      .catch(() => {
-        setGeoEstado("error");
-        setManual(true);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const elegirEnMapa = async (lat, lng) => {
-    const { direccion, comuna } = await direccionDesdeCoordenadas(lat, lng);
-    setPuntoOrigen({ lat, lng, direccion, comuna });
-    if (comuna) setComunaOrigen(comuna);
-    setGeoEstado("ok");
-    setManual(true);
-  };
-
+/**
+ * A diferencia del destino, acá NO pedimos un punto exacto ni la
+ * ubicación por geolocalización — solo la comuna. El pasajero de todos
+ * modos va a tener que caminar hasta una parada del viaje que elija
+ * (paso 4), así que pedirle una dirección precisa acá era una fricción
+ * de más sin beneficio real: la comuna alcanza para filtrar los viajes,
+ * y las paradas concretas se muestran recién cuando ya eligió un viaje.
+ */
+function PasoOrigen({ comunas, puntoDestino, comunaOrigen, setComunaOrigen, onVolver, onContinuar }) {
   return (
     <PantallaConMapa
       mapa={
         <MapaBusqueda
           rutas={[]}
-          lado="origen"
-          foco={puntoOrigen}
-          radioM={puntoOrigen ? RADIO_PREVISUALIZACION_M : null}
-          onClickMapa={elegirEnMapa}
+          lado="destino"
+          foco={puntoDestino}
+          radioM={puntoDestino ? RADIO_PREVISUALIZACION_M : null}
         />
       }
       overlayMapa={<BotonFlotante onClick={onVolver} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>}
     >
       <p className="text-xs font-bold text-taco uppercase tracking-wide">Paso 2 de 2</p>
-      <h1 className="text-xl font-bold mt-1 mb-3">¿Desde dónde sales?</h1>
+      <h1 className="text-xl font-bold mt-1 mb-3">¿Desde qué comuna sales?</h1>
 
       <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2.5 mb-3 text-sm">
         <span className="w-2 h-2 rounded-full bg-taco flex-shrink-0"></span>
@@ -280,52 +250,25 @@ function PasoOrigen({
         </span>
       </div>
 
-      {!manual && (
-        <div className="bg-gray-50 rounded-lg p-3 mb-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0 text-green-700">📍</div>
-          <div className="flex-1 min-w-0">
-            {geoEstado === "buscando" && <p className="text-sm text-gray-500">Buscando tu ubicación...</p>}
-            {geoEstado === "ok" && (
-              <>
-                <p className="text-sm font-semibold truncate">Detectamos que estás en {comunaOrigen || "tu ubicación"}</p>
-                <p className="text-xs text-gray-400 truncate">{puntoOrigen?.direccion}</p>
-              </>
-            )}
-            {geoEstado === "error" && <p className="text-sm text-gray-500">No pudimos acceder a tu ubicación</p>}
-          </div>
-          <button onClick={() => setManual(true)} className="text-xs text-taco-dark font-semibold whitespace-nowrap">
-            Cambiar
-          </button>
-        </div>
-      )}
+      <p className="text-xs text-gray-500 mb-3">
+        No necesitas la dirección exacta — de todas formas vas a caminar hasta el punto de
+        recogida del conductor. Con tu comuna alcanza para mostrarte los viajes disponibles.
+      </p>
 
-      {manual && (
-        <div className="mb-4 space-y-2">
-          <select
-            value={comunaOrigen}
-            onChange={(e) => setComunaOrigen(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
-          >
-            <option value="">Comuna de origen...</option>
-            {comunas.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <CampoDireccion
-            placeholder="Escribe tu dirección de origen"
-            comuna={comunaOrigen}
-            valor={puntoOrigen}
-            onElegir={(s) => {
-              setPuntoOrigen(s);
-              if (s.comuna) setComunaOrigen(s.comuna);
-            }}
-          />
-        </div>
-      )}
+      <select
+        value={comunaOrigen}
+        onChange={(e) => setComunaOrigen(e.target.value)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 mb-4 text-sm"
+      >
+        <option value="">Comuna de origen...</option>
+        {comunas.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
 
       <button
         onClick={onContinuar}
-        disabled={!puntoOrigen}
+        disabled={!comunaOrigen}
         className="w-full bg-taco text-white py-3 rounded-lg font-semibold disabled:opacity-40"
       >
         Ver viajes disponibles
@@ -384,6 +327,27 @@ function TarjetaRuta({ ruta, seleccionada, onClick, onQuitar, onElegir }) {
   );
 }
 
+function TarjetaParada({ punto, seleccionada, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-3 rounded-lg p-3 cursor-pointer border-2 transition ${
+        seleccionada ? "bg-orange-50 border-taco" : "bg-gray-50 border-transparent hover:border-gray-200"
+      }`}
+    >
+      <div
+        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm ${
+          seleccionada ? "bg-orange-200" : "bg-gray-200"
+        }`}
+      >
+        📍
+      </div>
+      <p className="text-sm flex-1 truncate">{punto.direccion}</p>
+      {seleccionada && <span className="text-taco text-base font-bold flex-shrink-0">✓</span>}
+    </div>
+  );
+}
+
 function RadioSlider({ etiqueta, valor, setValor, colorClase }) {
   return (
     <div className="bg-gray-50 rounded-lg p-3 mb-3">
@@ -423,39 +387,52 @@ export default function Buscar() {
   const [radioDestinoM, setRadioDestinoM] = useState(RADIO_DEFECTO_M);
 
   const [comunaOrigen, setComunaOrigen] = useState("");
-  const [puntoOrigen, setPuntoOrigen] = useState(null);
-  const [radioOrigenM, setRadioOrigenM] = useState(RADIO_DEFECTO_M);
 
   const [resultados, setResultados] = useState([]);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState("");
   const [rutaResaltadaId, setRutaResaltadaId] = useState(null);
   const [rutaElegidaId, setRutaElegidaId] = useState(null);
+  const [puntoEmbarqueId, setPuntoEmbarqueId] = useState(null);
 
   useEffect(() => {
     api.comunasDisponibles().then(setComunas).catch(() => setComunas([]));
   }, []);
 
   useEffect(() => {
-    if (paso < 3 || !puntoDestino || !puntoOrigen) return;
+    if (paso < 3 || !puntoDestino || !comunaOrigen) return;
     setBuscando(true);
     setError("");
     // El paso 3 filtra fino por destino (radio ajustable) y solo grueso por
-    // origen (comuna) — el radio de origen recién importa en el paso 4,
-    // una vez elegida una ruta puntual, para ubicar el punto de recogida.
+    // origen (comuna) — las paradas puntuales dentro de esa comuna recién
+    // se muestran en el paso 4, una vez elegido un viaje concreto.
     api
       .buscarRutas({
         destino_lat: puntoDestino.lat,
         destino_lng: puntoDestino.lng,
         destino_radio_m: radioDestinoM,
-        comuna_origen: comunaOrigen || undefined,
+        comuna_origen: comunaOrigen,
       })
       .then(setResultados)
       .catch((e) => setError(e.message))
       .finally(() => setBuscando(false));
-  }, [paso, puntoDestino, radioDestinoM, puntoOrigen, comunaOrigen]);
+  }, [paso, puntoDestino, radioDestinoM, comunaOrigen]);
 
   const rutaElegida = resultados.find((r) => r.id === rutaElegidaId);
+
+  // Puntos donde el pasajero puede subirse a ESTE viaje dentro de SU
+  // comuna: el punto de partida oficial del conductor (si cae en esa
+  // comuna) más las paradas intermedias que también caigan ahí.
+  const puntosEmbarque = !rutaElegida
+    ? []
+    : [
+        ...(rutaElegida.origen_comuna === comunaOrigen
+          ? [{ id: "origen", lat: rutaElegida.origen_lat, lng: rutaElegida.origen_lng, direccion: rutaElegida.origen_direccion }]
+          : []),
+        ...(rutaElegida.paradas || [])
+          .filter((p) => p.comuna === comunaOrigen)
+          .map((p, i) => ({ id: `parada-${i}`, lat: p.lat, lng: p.lng, direccion: p.direccion })),
+      ];
 
   if (paso === 1) {
     return (
@@ -477,8 +454,6 @@ export default function Buscar() {
         puntoDestino={puntoDestino}
         comunaOrigen={comunaOrigen}
         setComunaOrigen={setComunaOrigen}
-        puntoOrigen={puntoOrigen}
-        setPuntoOrigen={setPuntoOrigen}
         onVolver={() => setPaso(1)}
         onContinuar={() => setPaso(3)}
       />
@@ -490,29 +465,60 @@ export default function Buscar() {
       <PantallaConMapa
         mapa={
           <MapaBusqueda
-            rutas={[rutaElegida]}
-            lado="origen"
-            foco={puntoOrigen}
-            radioM={radioOrigenM}
-            resaltadaId={rutaElegida.id}
+            puntos={puntosEmbarque}
+            geometria={rutaElegida.geometria}
+            resaltadaId={puntoEmbarqueId}
+            onClickPin={setPuntoEmbarqueId}
+            colorPuntos="#16a34a"
           />
         }
         overlayMapa={
           <>
-            <BotonFlotante onClick={() => setPaso(3)} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>
+            <BotonFlotante
+              onClick={() => {
+                setPuntoEmbarqueId(null);
+                setPaso(3);
+              }}
+              claseExtra="left-4 top-4"
+            >
+              <FlechaVolver />
+            </BotonFlotante>
             <div className="absolute left-20 right-4 top-4 max-w-sm z-10">
               <div className="bg-white/95 backdrop-blur rounded-xl px-3.5 py-2.5 shadow-md">
                 <p className="text-xs font-bold text-gray-800 truncate">Ruta de {rutaElegida.conductor.nombre} elegida</p>
-                <p className="text-[11px] text-gray-500">Elige tu punto de recogida cerca de tu origen</p>
+                <p className="text-[11px] text-gray-500">Elige dónde quieres subir</p>
               </div>
             </div>
           </>
         }
       >
-        <RadioSlider etiqueta="Radio desde tu origen" valor={radioOrigenM} setValor={setRadioOrigenM} colorClase="text-green-700" />
+        <p className="text-xs font-semibold text-gray-500 mb-2">
+          {puntosEmbarque.length === 0
+            ? `Sin paradas registradas en ${comunaOrigen}`
+            : `${puntosEmbarque.length} ${puntosEmbarque.length === 1 ? "punto" : "puntos"} de subida en ${comunaOrigen}`}
+        </p>
+
+        {puntosEmbarque.length === 0 && (
+          <p className="text-sm text-gray-500 mb-4">
+            Este viaje no tiene paradas dentro de tu comuna. Vuelve atrás y prueba otro viaje.
+          </p>
+        )}
+
+        <div className="space-y-2 mb-4">
+          {puntosEmbarque.map((p) => (
+            <TarjetaParada
+              key={p.id}
+              punto={p}
+              seleccionada={p.id === puntoEmbarqueId}
+              onClick={() => setPuntoEmbarqueId(p.id)}
+            />
+          ))}
+        </div>
+
         <button
           onClick={() => navigate(`/rutas/${rutaElegida.id}`)}
-          className="w-full bg-taco text-white py-3 rounded-lg font-semibold"
+          disabled={!puntoEmbarqueId}
+          className="w-full bg-taco text-white py-3 rounded-lg font-semibold disabled:opacity-40"
         >
           Ver detalle del viaje
         </button>
@@ -537,7 +543,7 @@ export default function Buscar() {
         <>
           <BotonFlotante onClick={() => setPaso(2)} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>
           <div className="absolute left-20 right-4 top-4 max-w-lg flex gap-2 z-10">
-            <ChipDireccion color="bg-green-600" texto={puntoOrigen?.direccion} />
+            <ChipDireccion color="bg-green-600" texto={`Desde ${comunaOrigen}`} />
             <ChipDireccion color="bg-taco" texto={puntoDestino?.direccion} claseExtra="text-taco-dark font-medium" />
           </div>
         </>
@@ -566,6 +572,7 @@ export default function Buscar() {
                 onQuitar={() => setRutaResaltadaId(null)}
                 onElegir={() => {
                   setRutaElegidaId(r.id);
+                  setPuntoEmbarqueId(null);
                   setPaso(4);
                 }}
               />
