@@ -22,7 +22,7 @@ export default function DetalleRuta() {
 
   return (
     <div className="max-w-2xl mx-auto p-6 my-6">
-      <Link to="/rutas" className="text-sm text-taco underline">← Volver al listado</Link>
+      <Link to="/buscar" className="text-sm text-taco underline">← Volver a la búsqueda</Link>
 
       <div className="bg-white rounded-lg shadow-sm p-6 mt-3">
         <h1 className="text-2xl font-bold mb-1">

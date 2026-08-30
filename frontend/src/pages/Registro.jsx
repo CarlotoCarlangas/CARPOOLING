@@ -55,7 +55,7 @@ export default function Registro() {
     setEnviando(true);
     try {
       const respuesta = await registrar({ ...form, rut: formatearRut(form.rut) });
-      navigate(respuesta.usuario.es_conductor ? "/perfil" : "/rutas");
+      navigate(respuesta.usuario.es_conductor ? "/perfil" : "/buscar");
     } catch (err) {
       setError(err.message);
     } finally {

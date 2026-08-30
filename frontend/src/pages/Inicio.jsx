@@ -18,8 +18,8 @@ export default function Inicio() {
               Publicar una ruta
             </Link>
           )}
-          <Link to="/rutas" className="bg-gray-800 text-white px-5 py-2.5 rounded-lg">
-            Ver rutas disponibles
+          <Link to="/buscar" className="bg-gray-800 text-white px-5 py-2.5 rounded-lg">
+            Buscar un viaje
           </Link>
         </div>
       ) : (

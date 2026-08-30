@@ -463,3 +463,36 @@ el texto, el orden panel-arriba/mapa-abajo confirmado con
 real (María Fernández, Peñaflor→Providencia, $1.650) mostrando el
 slider y la tarjeta de resultado sin problemas. Pendiente que el
 usuario confirme en su celular real.
+
+## Sesión: se elimina la página "Ver rutas" (listado simple)
+
+`Rutas.jsx` (ruta `/rutas`, link "Ver rutas" del menú) era un listado
+plano de todas las rutas publicadas, construido ANTES del buscador real
+— su propio texto en pantalla decía "la búsqueda por cercanía y la
+reserva de cupo (módulo 3) se agregan en el próximo paso". Con el
+buscador (`Buscar.jsx`, `/buscar`) ya completo (destino → origen → mapa
+con radio ajustable → selección de ruta), el usuario notó que ese
+listado simple ya no aportaba nada — quedó redundante. Se eliminó por
+completo, a pedido explícito del usuario:
+
+- Se borró `frontend/src/pages/Rutas.jsx` y `api.listarRutas()` (sin
+  otros usos).
+- Se sacó la ruta `/rutas` de `App.jsx` y el link "Ver rutas" del
+  `Navbar.jsx` — **`/rutas/:id` (`DetalleRuta.jsx`) se mantiene intacta**,
+  es la página de detalle de una ruta puntual y la sigue usando
+  `Buscar.jsx` (paso 4, "Ver detalle del viaje") y `CrearRuta.jsx`
+  (tras publicar).
+- Todo lo que apuntaba a `/rutas` (el listado) se redirigió a `/buscar`:
+  el botón "Ver rutas disponibles" de `Inicio.jsx` (ahora "Buscar un
+  viaje"), y el redirect post-login/registro para pasajeros en
+  `Login.jsx`/`Registro.jsx`.
+- El link "← Volver al listado" de `DetalleRuta.jsx` ahora dice
+  "← Volver a la búsqueda" y apunta a `/buscar`.
+- El botón de éxito en `CrearRuta.jsx` (tras publicar una ruta) ya no
+  dice "Ver listado de rutas" — ahora dice "Ver mi ruta publicada" y
+  lleva directo a `/rutas/{id}` de la ruta recién creada, que es más
+  útil para el conductor que un listado general.
+
+Verificado en el navegador: navbar sin "Ver rutas", `/rutas` (sin id)
+ya no rompe nada (no hay contenido, pero tampoco crashea), y
+`/rutas/1` (detalle) sigue funcionando con el nuevo link de vuelta.

@@ -88,10 +88,6 @@ export const api = {
   },
 
   crearRuta: (datos, token) => request("/routes", { method: "POST", body: datos, token }),
-  listarRutas: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return request(`/routes${query ? `?${query}` : ""}`);
-  },
   detalleRuta: (id) => request(`/routes/${id}`),
 
   comunasDisponibles: () => request("/routes/comunas"),

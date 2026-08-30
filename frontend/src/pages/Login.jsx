@@ -16,7 +16,7 @@ export default function Login() {
     setEnviando(true);
     try {
       const respuesta = await iniciarSesion({ rut_o_email: rutOEmail, password });
-      navigate(respuesta.usuario.es_conductor ? "/perfil" : "/rutas");
+      navigate(respuesta.usuario.es_conductor ? "/perfil" : "/buscar");
     } catch (err) {
       setError(err.message);
     } finally {

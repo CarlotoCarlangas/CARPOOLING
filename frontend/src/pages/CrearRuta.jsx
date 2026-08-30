@@ -81,10 +81,10 @@ export default function CrearRuta() {
         </p>
         <div className="flex justify-center gap-3">
           <button
-            onClick={() => navigate("/rutas")}
+            onClick={() => navigate(`/rutas/${publicada.id}`)}
             className="bg-taco text-white px-4 py-2 rounded-lg"
           >
-            Ver listado de rutas
+            Ver mi ruta publicada
           </button>
           <button
             onClick={() => {
