@@ -26,8 +26,13 @@ function PantallaConMapa({ mapa, children }) {
 
 function HojaInferior({ children, maxAlturaClase = "max-h-[50vh]" }) {
   return (
+    // En celular ocupa todo el ancho (como cualquier bottom sheet); en
+    // pantallas anchas (probando desde un PC) se limita a un ancho de
+    // formulario normal y se centra — si no, el <select> y los inputs se
+    // estiran de punta a punta de la ventana y el desplegable nativo del
+    // navegador se ve gigante y fuera de lugar.
     <div
-      className={`absolute left-0 right-0 bottom-0 z-10 bg-white rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,.18)] pt-3 pb-5 px-5 overflow-y-auto ${maxAlturaClase}`}
+      className={`absolute left-0 right-0 mx-auto max-w-md bottom-0 z-10 bg-white rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,.18)] pt-3 pb-5 px-5 overflow-y-auto ${maxAlturaClase}`}
     >
       <div className="w-9 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
       {children}
@@ -481,7 +486,7 @@ export default function Buscar() {
       >
         <BotonFlotante onClick={() => setPaso(3)} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>
 
-        <div className="absolute left-20 right-4 top-4 z-10">
+        <div className="absolute left-20 right-4 top-4 max-w-sm z-10">
           <div className="bg-white/95 backdrop-blur rounded-xl px-3.5 py-2.5 shadow-md">
             <p className="text-xs font-bold text-gray-800 truncate">Ruta de {rutaElegida.conductor.nombre} elegida</p>
             <p className="text-[11px] text-gray-500">Elige tu punto de recogida cerca de tu origen</p>
@@ -517,7 +522,7 @@ export default function Buscar() {
     >
       <BotonFlotante onClick={() => setPaso(2)} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>
 
-      <div className="absolute left-20 right-4 top-4 flex gap-2 z-10">
+      <div className="absolute left-20 right-4 top-4 max-w-lg flex gap-2 z-10">
         <ChipDireccion color="bg-green-600" texto={puntoOrigen?.direccion} />
         <ChipDireccion color="bg-taco" texto={puntoDestino?.direccion} claseExtra="text-taco-dark font-medium" />
       </div>
