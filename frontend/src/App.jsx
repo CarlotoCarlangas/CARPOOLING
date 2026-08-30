@@ -16,7 +16,11 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="h-dvh flex flex-col overflow-hidden">
+        {/* h-full (no h-dvh): index.css ya encadena html/body/#root a
+            height:100%, que es más compatible en navegadores de Android
+            más viejos que la unidad dvh — usamos el mismo mecanismo que
+            ya prueba funcionar en el resto de la app. */}
+        <div className="h-full flex flex-col overflow-hidden">
           <Navbar />
           {/* flex-1 + min-h-0 le da a cada página exactamente el alto que
               sobra bajo el Navbar. La mayoría de las páginas no lo usan
