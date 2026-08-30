@@ -365,6 +365,41 @@ con el mapa como un elemento más entre otros. Cambios:
   el Navbar (medido con getBoundingClientRect) y que no aparece scroll
   de página (`document.documentElement.scrollHeight === window.innerHeight`).
 
+**CORRECCIÓN — se abandonó la "hoja flotante encima del mapa":** la
+sección de arriba (`HojaInferior` con `position:absolute` sobre el
+mapa) tuvo dos bugs reales en dispositivos/navegadores del usuario que
+no se pudieron reproducir en el entorno de prueba:
+1. En el celular real, la hoja completa no aparecía (solo se veía el
+   mapa) — probablemente por soporte inconsistente de `dvh` en
+   versiones viejas de Chrome/Android (se cambió a `h-full`, ver nota
+   de abajo, pero no quedó 100% confirmado que eso fuera la única causa).
+2. En el PC, con la ventana ancha, el `<select>` de comuna (dentro de la
+   hoja) quedaba **visualmente detrás del mapa** aunque seguía existiendo
+   en el DOM y era clicable "a ciegas" — un bug de stacking/z-index real
+   pero imposible de reproducir en las pruebas automatizadas de esta
+   sesión (funcionaba perfecto ahí).
+
+En vez de seguir depurando a ciegas un bug de superposición que no se
+podía reproducir, se rediseñó `PantallaConMapa` (mismo nombre, misma
+API `mapa`/`children`, pero ahora también recibe `overlayMapa`) para
+que **el mapa y el panel sean hermanos en un `flex flex-col`, no uno
+encima del otro** — pantalla dividida (map arriba en `flex-[3]`, panel
+abajo en `flex-[2]`, "la mayor parte de la pantalla al mapa" como pidió
+el usuario) en vez de `position:absolute` + `z-index`. Esto elimina la
+categoría de bug por completo: no hay dos elementos compitiendo por el
+mismo espacio en pantalla, así que no hay nada que pueda quedar
+"detrás". `HojaInferior` ya no existe — el panel es simplemente el
+segundo hijo de un flexbox. `BotonFlotante` y los chips SÍ siguen usando
+`position:absolute`, pero ahora solo dentro de la caja del mapa (más
+chica, `flex-[3]`), no sobre toda la pantalla — si algo volviera a
+fallar ahí, el panel del formulario seguiría intacto y usable, que es
+lo importante.
+
+Verificado con inspección del DOM (`panel.closest()` desde el `<select>`
+no está anidado dentro de la caja del mapa — son hermanos) y con el
+flujo completo (paso 1 a 4) funcionando de punta a punta después del
+cambio. Sigue pendiente que el usuario confirme en su celular real.
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer
