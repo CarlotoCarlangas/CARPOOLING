@@ -98,6 +98,12 @@ export const api = {
     const query = new URLSearchParams(limpios).toString();
     return request(`/routes/buscar${query ? `?${query}` : ""}`);
   },
+
+  crearSolicitud: (datos, token) => request("/requests", { method: "POST", body: datos, token }),
+  misSolicitudes: (token) => request("/requests/mias", { token }),
+  solicitudesRecibidas: (token) => request("/requests/recibidas", { token }),
+  aceptarSolicitud: (id, token) => request(`/requests/${id}/aceptar`, { method: "PUT", token }),
+  rechazarSolicitud: (id, token) => request(`/requests/${id}/rechazar`, { method: "PUT", token }),
 };
 
 export { API_URL, ApiError };

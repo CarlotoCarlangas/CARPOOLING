@@ -516,7 +516,10 @@ export default function Buscar() {
         </div>
 
         <button
-          onClick={() => navigate(`/rutas/${rutaElegida.id}`)}
+          onClick={() => {
+            const embarque = puntosEmbarque.find((p) => p.id === puntoEmbarqueId);
+            navigate(`/rutas/${rutaElegida.id}`, { state: { embarque } });
+          }}
           disabled={!puntoEmbarqueId}
           className="w-full bg-taco text-white py-3 rounded-lg font-semibold disabled:opacity-40"
         >

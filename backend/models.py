@@ -159,3 +159,32 @@ class Route(SQLModel, table=True):
     activa: bool = Field(default=True)
 
     fecha_creacion: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Solicitud(SQLModel, table=True):
+    """
+    Solicitud de un pasajero para reservar un cupo en una ruta (Módulo 3).
+
+    Estados: "pendiente" (recién creada) -> "aceptada" o "rechazada" (el
+    conductor responde). Al aceptar, se descuenta un cupo de la ruta.
+
+    TODO PRODUCCIÓN: agregar un estado "cancelada" para que el pasajero
+    pueda desistir antes de que el conductor responda, y devolver el cupo
+    si cancela después de ser aceptado. Se dejó fuera de este incremento
+    para no hacer un cambio gigante de una sola vez.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ruta_id: int = Field(foreign_key="route.id", index=True)
+    pasajero_id: int = Field(foreign_key="user.id", index=True)
+
+    # PRIVACIDAD (dato sensible - geolocalización): punto donde el
+    # pasajero eligió subir, entre las paradas que definió el conductor.
+    # Se recolecta solo para que el conductor sepa dónde recogerlo.
+    embarque_lat: float
+    embarque_lng: float
+    embarque_direccion: str
+
+    estado: str = Field(default="pendiente", index=True)  # pendiente | aceptada | rechazada
+
+    fecha_solicitud: datetime = Field(default_factory=datetime.utcnow)
+    fecha_respuesta: Optional[datetime] = None

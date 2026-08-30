@@ -168,3 +168,50 @@ class RouteOut(BaseModel):
     modo_solo_mujeres: bool
     activa: bool
     fecha_creacion: datetime
+
+
+# ---------- Solicitudes (reserva del pasajero) ----------
+
+class SolicitudCreate(BaseModel):
+    ruta_id: int
+    embarque: PuntoRuta
+
+
+class PasajeroResumen(BaseModel):
+    id: int
+    nombre: str
+    # PRIVACIDAD: se muestra al conductor solo una vez que existe una
+    # solicitud sobre su ruta, para que pueda coordinar la recogida
+    # (ej. avisar un atraso). No se expone en ningún otro listado.
+    telefono: str
+    foto_url: Optional[str] = None
+    calificacion_promedio: Optional[float] = None
+    total_calificaciones: int
+
+
+class RutaResumen(BaseModel):
+    id: int
+    conductor: ConductorResumen
+    origen_direccion: str
+    destino_direccion: str
+    hora_salida: str
+    precio_pasajero: int
+
+
+class SolicitudOut(BaseModel):
+    id: int
+    ruta: RutaResumen
+    pasajero: PasajeroResumen
+    embarque_lat: float
+    embarque_lng: float
+    embarque_direccion: str
+    estado: str
+    fecha_solicitud: datetime
+
+
+class SolicitudPasajeroOut(BaseModel):
+    id: int
+    ruta: RutaResumen
+    embarque_direccion: str
+    estado: str
+    fecha_solicitud: datetime

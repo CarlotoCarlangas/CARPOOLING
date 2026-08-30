@@ -545,3 +545,68 @@ Peñaflor", "Bernardo O'Higgins", "Balmaceda"), el botón queda
 deshabilitado hasta elegir una, y al elegir "Plaza de Peñaflor" navega
 correctamente al detalle del viaje. Probado también en viewport móvil
 sin problemas de layout.
+
+## Sesión: reserva de cupo (cierra el Módulo 3)
+
+Última pieza que le faltaba al Módulo 3: hasta ahora "Reservar cupo" en
+`DetalleRuta.jsx` era un botón deshabilitado ("próximamente"). Ahora la
+reserva funciona de punta a punta: el pasajero solicita el cupo con el
+punto de embarque que ya eligió en el buscador, y el conductor la ve y
+la acepta o rechaza.
+
+**Backend (nuevo):**
+- Modelo `Solicitud` (`models.py`): `ruta_id`, `pasajero_id`,
+  `embarque_lat/lng/direccion` (dato sensible — PRIVACIDAD), `estado`
+  (`pendiente` → `aceptada`/`rechazada`), fechas. Tabla nueva, no
+  necesitó migración manual (a diferencia de agregar columnas a una
+  tabla existente).
+- Router nuevo `routes/requests.py`, montado en `main.py`:
+  - `POST /api/requests` — el pasajero crea la solicitud. Valida que
+    sea pasajero, que no sea su propia ruta, que haya cupos, y que no
+    tenga ya una solicitud pendiente/aceptada para esa misma ruta.
+  - `GET /api/requests/mias` — solicitudes del pasajero autenticado.
+  - `GET /api/requests/recibidas` — todas las solicitudes recibidas en
+    CUALQUIERA de las rutas del conductor autenticado (junta varias
+    rutas en una sola consulta, para no tener que ir ruta por ruta).
+  - `GET /api/requests/ruta/{id}` — solicitudes de una ruta puntual
+    (solo el dueño de esa ruta puede verlas).
+  - `PUT /api/requests/{id}/aceptar` y `/rechazar` — solo el conductor
+    dueño de la ruta. Al aceptar, descuenta un cupo (`cupos_disponibles
+    -= 1`).
+- Fix chico de paso: `buscar_rutas` ahora exige `cupos_disponibles > 0`
+  — antes un viaje ya lleno igual podía aparecer en los resultados del
+  pasajero.
+
+**Frontend (nuevo):**
+- `Buscar.jsx` (paso 4): al confirmar, pasa el punto de embarque elegido
+  a `DetalleRuta` vía `navigate(..., { state: { embarque } })` — no se
+  guarda en la URL porque son datos de geolocalización (sensibles).
+- `DetalleRuta.jsx`: si hay `embarque` en el state y el usuario es
+  pasajero autenticado (y no es su propia ruta), muestra el botón real
+  "Reservar cupo" → llama a `crearSolicitud` → muestra "Solicitud
+  enviada, pendiente". Si falta alguna condición (no logueado, sin
+  embarque, es su propia ruta, ya sin cupos), muestra el mensaje/enlace
+  que corresponde en vez del botón.
+- `MisReservas.jsx` (`/mis-reservas`) — lista de solicitudes del
+  pasajero con estado (pendiente/aceptada/rechazada, con color).
+- `Solicitudes.jsx` (`/solicitudes`) — bandeja del conductor: todas las
+  solicitudes recibidas, con botones Aceptar/Rechazar mientras estén
+  pendientes; una vez respondida, muestra el teléfono del pasajero para
+  coordinar (antes de responder no se expone, por minimización de
+  datos).
+- Links nuevos en `Navbar.jsx`: "Mis reservas" (solo pasajeros) y
+  "Solicitudes" (solo conductores).
+
+Verificado end-to-end contra el backend real (con una cuenta pasajero
+de prueba, creada y borrada solo para la prueba — no se tocaron los 4
+conductores demo que sí se mantienen como fixture reutilizable): pedir
+un cupo en la ruta de María Fernández (demo), verlo en "Mis reservas"
+como "Pendiente", aceptarlo desde "Solicitudes" logueado como María, y
+confirmar que pasa a "Aceptada" con el teléfono del pasajero visible.
+También confirmado por `curl` directo al API que `cupos_disponibles`
+baja de 1 a 0 al aceptar, y que la ruta deja de aparecer en la búsqueda
+una vez sin cupos.
+
+**Lo que falta (siguiente paso, aún no construido):** Módulo 4 — chat
+interno entre conductor y pasajero, que debería habilitarse recién
+cuando una solicitud queda en estado "aceptada".

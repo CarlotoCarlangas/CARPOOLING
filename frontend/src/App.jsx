@@ -10,6 +10,8 @@ import Perfil from "./pages/Perfil";
 import CrearRuta from "./pages/CrearRuta";
 import DetalleRuta from "./pages/DetalleRuta";
 import Buscar from "./pages/Buscar";
+import MisReservas from "./pages/MisReservas";
+import Solicitudes from "./pages/Solicitudes";
 
 function App() {
   return (
@@ -47,6 +49,22 @@ function App() {
                 element={
                   <RutaProtegida>
                     <CrearRuta />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/mis-reservas"
+                element={
+                  <RutaProtegida>
+                    <MisReservas />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/solicitudes"
+                element={
+                  <RutaProtegida>
+                    <Solicitudes />
                   </RutaProtegida>
                 }
               />

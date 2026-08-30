@@ -230,7 +230,9 @@ def buscar_rutas(
     origen_radio_km = (origen_radio_m / 1000) if origen_radio_m else None
     destino_radio_km = (destino_radio_m / 1000) if destino_radio_m else None
 
-    rutas = session.exec(select(Route).where(Route.activa == True)).all()  # noqa: E712
+    rutas = session.exec(
+        select(Route).where(Route.activa == True, Route.cupos_disponibles > 0)  # noqa: E712
+    ).all()
 
     resultado = []
     for ruta in rutas:
