@@ -413,3 +413,53 @@ arriba: `POST /api/requests`, `GET /api/requests/{route_id}`,
 futuro se agregan más columnas a modelos existentes, recordar que hace
 falta el mismo tipo de migración manual — no hay Alembic configurado.
 TODO PRODUCCIÓN: configurar Alembic antes de que esto pase en producción.
+
+## Sesión: mapa duplicado + orden panel/mapa (confirmado por el usuario)
+
+El usuario confirmó que la pantalla dividida (mapa/panel como hermanos,
+sin superposición) SÍ funcionó en su celular y en su PC — quedó resuelto
+el bug de stacking de la sesión anterior. Pero encontró dos problemas
+nuevos, ambos corregidos en esta sesión:
+
+**1. Mapa duplicado.** En los pasos "elige destino" / "elige origen",
+`CampoDireccion` tenía su propio mapa chico de respaldo (`MapaPunto`,
+para cuando la búsqueda de texto no encuentra la dirección). Como el
+mapa grande de fondo (`MapaBusqueda`) ya ocupa la pantalla, esto se veía
+como DOS mapas al mismo tiempo apenas se tocaba "marcar en el mapa" —
+uno grande arriba sin poder tocarlo, y uno chico funcional más abajo.
+Arreglo: se le agregó a `MapaBusqueda` (`components/MapaBusqueda.jsx`)
+un prop `onClickMapa` que dispara con el clic directo sobre el mapa
+(no sobre un pin). `Buscar.jsx` ahora conecta ese clic a
+`direccionDesdeCoordenadas` para reverso-geocodificar el punto y guardar
+el destino/origen — el mapa grande de fondo ES el selector, no hace
+falta un segundo mapa. `CampoDireccion` perdió el estado `mostrarMapa`
+y el `<MapaPunto>` embebido; ahora solo muestra un aviso texto que
+apunta al mapa de arriba. `MapaPunto.jsx` se dejó en el proyecto (podría
+reusarse en otro lado) pero ya no se importa en `Buscar.jsx`.
+
+Al conectar el clic del mapa grande al mismo `onElegir` que usa la
+búsqueda por texto, apareció un bug chico relacionado: el campo de texto
+de la dirección no se actualizaba cuando el punto se elegía tocando el
+mapa (porque `CampoDireccion` solo inicializaba su texto una vez, al
+montar). Se agregó un `useEffect` que sincroniza el texto visible cada
+vez que el punto (`valor`) cambia desde afuera.
+
+**2. "Ya no veo el radio de búsqueda".** El panel (con el slider de
+radio) estaba ABAJO y el mapa arriba. El usuario pidió invertirlo:
+**panel arriba, mapa abajo** — porque en celular, al tocar un campo de
+texto del panel y abrirse el teclado, si el panel estaba abajo el
+teclado lo tapaba justo cuando hacía falta verlo para escribir/leer. Se
+invirtió el orden dentro de `PantallaConMapa` (mismas proporciones,
+panel `flex-[2]` arriba y mapa `flex-[3]` abajo) y se ajustó la sombra
+del panel (ahora hacia abajo, `shadow-[0_4px_...]`, en vez de hacia
+arriba). Efecto colateral bueno: el slider de radio (paso 3 y paso 4)
+queda como lo primero visible del panel, sin tener que scrollear.
+
+Verificado end-to-end en el navegador (sin poder ver pantallas reales,
+pero sí inspeccionando el DOM/JS): un solo `.leaflet-container` en toda
+la página, el clic en el mapa efectivamente guarda el punto y actualiza
+el texto, el orden panel-arriba/mapa-abajo confirmado con
+`getBoundingClientRect()`, y el flujo completo 1→4 con una ruta demo
+real (María Fernández, Peñaflor→Providencia, $1.650) mostrando el
+slider y la tarjeta de resultado sin problemas. Pendiente que el
+usuario confirme en su celular real.

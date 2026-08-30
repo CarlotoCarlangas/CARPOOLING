@@ -4,14 +4,13 @@ import { api } from "../services/api";
 import { buscarDireccion, direccionDesdeCoordenadas } from "../services/geocoding";
 import { obtenerUbicacionActual } from "../services/geolocalizacion";
 import MapaBusqueda from "../components/MapaBusqueda";
-import MapaPunto from "../components/MapaPunto";
 
 const RADIO_DEFECTO_M = 200;
 const RADIO_PREVISUALIZACION_M = 350;
 
 /**
  * El mapa es la propuesta de valor, así que se lleva la mayor parte de
- * la pantalla — pero como PANTALLA DIVIDIDA (mapa arriba, panel abajo),
+ * la pantalla — pero como PANTALLA DIVIDIDA (panel arriba, mapa abajo),
  * no como una hoja flotando encima del mapa. Se probó primero con el
  * panel superpuesto (`position: absolute` sobre el mapa) y en la
  * práctica, en varios navegadores/dispositivos reales, terminaba
@@ -20,21 +19,26 @@ const RADIO_PREVISUALIZACION_M = 350;
  * difícil de reproducir y depurar a ciegas. Dividir la pantalla en dos
  * bloques que no se superponen elimina esa categoría de bug por
  * completo: no hay z-index compitiendo entre el mapa y el panel.
+ *
+ * El panel va ARRIBA y el mapa ABAJO (y no al revés) porque el panel
+ * tiene campos de texto (comuna, dirección) — en celular, al tocar un
+ * campo y abrirse el teclado, si el panel estuviera abajo el teclado lo
+ * taparía justo cuando el usuario necesita verlo para escribir.
  */
 function PantallaConMapa({ mapa, overlayMapa, children }) {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-gray-200">
-      <div className="relative flex-[3] min-h-0">
-        {mapa}
-        {overlayMapa}
-      </div>
-      <div className="flex-[2] min-h-0 overflow-y-auto bg-white pt-3 pb-5 px-5 shadow-[0_-4px_16px_rgba(0,0,0,.1)]">
+      <div className="flex-[2] min-h-0 overflow-y-auto bg-white pt-3 pb-5 px-5 shadow-[0_4px_16px_rgba(0,0,0,.1)] relative z-10">
         <div className="w-9 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
         {/* max-w-md + mx-auto: en celular ocupa todo el ancho; en
             pantallas anchas (probando desde un PC) se centra en un ancho
             de formulario normal — si no, el <select> se estira de punta
             a punta de la ventana y su desplegable nativo se ve gigante. */}
         <div className="max-w-md mx-auto">{children}</div>
+      </div>
+      <div className="relative flex-[3] min-h-0">
+        {mapa}
+        {overlayMapa}
       </div>
     </div>
   );
@@ -60,15 +64,17 @@ function FlechaVolver() {
 }
 
 /**
- * Campo de dirección con autocompletado + respaldo de marcar en el mapa.
+ * Campo de dirección con autocompletado.
  *
  * OpenStreetMap (la fuente de datos gratuita que usamos) no siempre tiene
  * la numeración de calles residenciales en comunas periurbanas como
  * Peñaflor — buscar "El Roble 925" puede no devolver nada aunque la
- * dirección exista. Por eso, si la búsqueda de texto no encuentra
- * resultados, mostramos un aviso y la opción de marcar el punto
- * directamente en un mapa (que siempre funciona, sin depender de que la
- * calle esté indexada por nombre).
+ * dirección exista. Antes esto abría un SEGUNDO mapa embebido como
+ * respaldo, pero terminaba viéndose como "el mapa duplicado" (dos mapas
+ * en la misma pantalla, uno arriba sin poder tocarlo y otro chico
+ * después). Ahora el mapa grande de arriba (el mismo `MapaBusqueda` de
+ * fondo) YA es clickeable para marcar el punto — este campo solo avisa
+ * que esa alternativa existe, sin duplicar nada.
  */
 function CampoDireccion({ placeholder, comuna, valor, onElegir }) {
   const debounceRef = useRef(null);
@@ -77,7 +83,19 @@ function CampoDireccion({ placeholder, comuna, valor, onElegir }) {
   const [sugerencias, setSugerencias] = useState([]);
   const [buscando, setBuscando] = useState(false);
   const [buscoAlMenosUnaVez, setBuscoAlMenosUnaVez] = useState(false);
-  const [mostrarMapa, setMostrarMapa] = useState(false);
+
+  // Si el punto se elige tocando el mapa grande de arriba (en vez de
+  // escribiendo), `valor` cambia desde afuera — sin esto el campo de
+  // texto se quedaría vacío aunque el punto ya esté guardado.
+  useEffect(() => {
+    if (valor?.direccion && valor.direccion !== texto) {
+      saltarBusquedaRef.current = true;
+      setTexto(valor.direccion);
+      setSugerencias([]);
+      setBuscoAlMenosUnaVez(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valor]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -109,13 +127,7 @@ function CampoDireccion({ placeholder, comuna, valor, onElegir }) {
     setTexto(s.direccion);
     setSugerencias([]);
     setBuscoAlMenosUnaVez(false);
-    setMostrarMapa(false);
     onElegir(s);
-  };
-
-  const elegirEnMapa = async (lat, lng) => {
-    const { direccion, comuna: comunaPunto } = await direccionDesdeCoordenadas(lat, lng);
-    elegir({ lat, lng, direccion, comuna: comunaPunto });
   };
 
   const sinResultados = buscoAlMenosUnaVez && !buscando && sugerencias.length === 0;
@@ -141,28 +153,25 @@ function CampoDireccion({ placeholder, comuna, valor, onElegir }) {
         )}
       </div>
 
-      {sinResultados && !mostrarMapa && (
+      {sinResultados && (
         <p className="text-xs text-amber-700 mt-1.5">
-          No encontramos esa dirección. <button type="button" onClick={() => setMostrarMapa(true)} className="underline font-semibold">Márcala en el mapa</button>.
+          No encontramos esa dirección. Puedes tocar directamente el punto en el mapa de arriba.
         </p>
       )}
-
       {!sinResultados && (
-        <button type="button" onClick={() => setMostrarMapa((v) => !v)} className="text-xs text-taco-dark font-semibold mt-1.5 underline">
-          {mostrarMapa ? "Ocultar mapa" : "o marcar en el mapa"}
-        </button>
-      )}
-
-      {mostrarMapa && (
-        <div className="mt-2">
-          <MapaPunto onElegir={elegirEnMapa} />
-        </div>
+        <p className="text-xs text-gray-400 mt-1.5">o toca el punto directamente en el mapa de arriba</p>
       )}
     </div>
   );
 }
 
 function PasoDestino({ comunas, comunaDestino, setComunaDestino, puntoDestino, setPuntoDestino, onContinuar }) {
+  const elegirEnMapa = async (lat, lng) => {
+    const { direccion, comuna } = await direccionDesdeCoordenadas(lat, lng);
+    setPuntoDestino({ lat, lng, direccion, comuna });
+    if (comuna) setComunaDestino(comuna);
+  };
+
   return (
     <PantallaConMapa
       mapa={
@@ -171,6 +180,7 @@ function PasoDestino({ comunas, comunaDestino, setComunaDestino, puntoDestino, s
           lado="destino"
           foco={puntoDestino}
           radioM={puntoDestino ? RADIO_PREVISUALIZACION_M : null}
+          onClickMapa={elegirEnMapa}
         />
       }
     >
@@ -238,6 +248,14 @@ function PasoOrigen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const elegirEnMapa = async (lat, lng) => {
+    const { direccion, comuna } = await direccionDesdeCoordenadas(lat, lng);
+    setPuntoOrigen({ lat, lng, direccion, comuna });
+    if (comuna) setComunaOrigen(comuna);
+    setGeoEstado("ok");
+    setManual(true);
+  };
+
   return (
     <PantallaConMapa
       mapa={
@@ -246,6 +264,7 @@ function PasoOrigen({
           lado="origen"
           foco={puntoOrigen}
           radioM={puntoOrigen ? RADIO_PREVISUALIZACION_M : null}
+          onClickMapa={elegirEnMapa}
         />
       }
       overlayMapa={<BotonFlotante onClick={onVolver} claseExtra="left-4 top-4"><FlechaVolver /></BotonFlotante>}

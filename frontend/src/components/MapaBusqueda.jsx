@@ -63,12 +63,14 @@ function iconoPin({ color, resaltado }) {
  * glow y check) — pensado para sincronizarse con una lista de tarjetas
  * fuera del mapa.
  */
-export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, onClickPin }) {
+export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, onClickPin, onClickMapa }) {
   const contenedorRef = useRef(null);
   const mapaRef = useRef(null);
   const capasRef = useRef([]);
   const onClickPinRef = useRef(onClickPin);
   onClickPinRef.current = onClickPin;
+  const onClickMapaRef = useRef(onClickMapa);
+  onClickMapaRef.current = onClickMapa;
 
   useEffect(() => {
     // Sin botones de +/- : el mapa ocupa toda la pantalla (estilo Uber) y
@@ -79,6 +81,10 @@ export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, o
       attribution: "&copy; colaboradores de OpenStreetMap",
       maxZoom: 19,
     }).addTo(mapa);
+    // Clic directo en el mapa (no en un pin): usado en los pasos de
+    // elegir origen/destino para marcar el punto ahí mismo, sin necesitar
+    // un segundo mapa embebido aparte.
+    mapa.on("click", (e) => onClickMapaRef.current?.(e.latlng.lat, e.latlng.lng));
     mapaRef.current = mapa;
     return () => mapa.remove();
   }, []);
