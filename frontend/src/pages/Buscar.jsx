@@ -4,56 +4,114 @@ import { api } from "../services/api";
 import { buscarDireccion, direccionDesdeCoordenadas } from "../services/geocoding";
 import { obtenerUbicacionActual } from "../services/geolocalizacion";
 import MapaBusqueda from "../components/MapaBusqueda";
+import MapaPunto from "../components/MapaPunto";
 
 const RADIO_DEFECTO_M = 200;
 
-function CampoDireccion({ placeholder, comuna, valor, setValor, sugerencias, setSugerencias, onElegir }) {
+/**
+ * Campo de dirección con autocompletado + respaldo de marcar en el mapa.
+ *
+ * OpenStreetMap (la fuente de datos gratuita que usamos) no siempre tiene
+ * la numeración de calles residenciales en comunas periurbanas como
+ * Peñaflor — buscar "El Roble 925" puede no devolver nada aunque la
+ * dirección exista. Por eso, si la búsqueda de texto no encuentra
+ * resultados, mostramos un aviso y la opción de marcar el punto
+ * directamente en un mapa (que siempre funciona, sin depender de que la
+ * calle esté indexada por nombre).
+ */
+function CampoDireccion({ placeholder, comuna, valor, onElegir }) {
   const debounceRef = useRef(null);
+  const saltarBusquedaRef = useRef(false);
   const [texto, setTexto] = useState(valor?.direccion || "");
+  const [sugerencias, setSugerencias] = useState([]);
+  const [buscando, setBuscando] = useState(false);
+  const [buscoAlMenosUnaVez, setBuscoAlMenosUnaVez] = useState(false);
+  const [mostrarMapa, setMostrarMapa] = useState(false);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (texto.trim().length < 3) {
-      setSugerencias([]);
+    // Cuando el texto cambia porque el usuario ACABA de elegir una
+    // dirección (de la lista o del mapa), no hay que volver a buscar —
+    // si no, el propio texto de la dirección elegida dispara una nueva
+    // búsqueda y el dropdown reaparece encima de la selección.
+    if (saltarBusquedaRef.current) {
+      saltarBusquedaRef.current = false;
       return;
     }
+    if (texto.trim().length < 3) {
+      setSugerencias([]);
+      setBuscoAlMenosUnaVez(false);
+      return;
+    }
+    setBuscando(true);
     debounceRef.current = setTimeout(async () => {
-      setSugerencias(await buscarDireccion(texto, comuna));
+      const resultado = await buscarDireccion(texto, comuna);
+      setSugerencias(resultado);
+      setBuscando(false);
+      setBuscoAlMenosUnaVez(true);
     }, 400);
     return () => clearTimeout(debounceRef.current);
   }, [texto, comuna]);
 
   const elegir = (s) => {
+    saltarBusquedaRef.current = true;
     setTexto(s.direccion);
     setSugerencias([]);
+    setBuscoAlMenosUnaVez(false);
+    setMostrarMapa(false);
     onElegir(s);
   };
 
+  const elegirEnMapa = async (lat, lng) => {
+    const { direccion, comuna: comunaPunto } = await direccionDesdeCoordenadas(lat, lng);
+    elegir({ lat, lng, direccion, comuna: comunaPunto });
+  };
+
+  const sinResultados = buscoAlMenosUnaVez && !buscando && sugerencias.length === 0;
+
   return (
-    <div className="relative">
-      <input
-        type="text"
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        placeholder={placeholder}
-        className={`w-full border rounded-lg px-3 py-2.5 text-sm ${valor ? "border-taco" : "border-gray-300"}`}
-      />
-      {sugerencias.length > 0 && (
-        <ul className="absolute z-20 bg-white border rounded-lg shadow-md w-full mt-1 max-h-48 overflow-y-auto text-sm">
-          {sugerencias.map((s, i) => (
-            <li key={i} onClick={() => elegir(s)} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
-              {s.direccion}
-            </li>
-          ))}
-        </ul>
+    <div>
+      <div className="relative">
+        <input
+          type="text"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full border rounded-lg px-3 py-2.5 text-sm ${valor ? "border-taco" : "border-gray-300"}`}
+        />
+        {sugerencias.length > 0 && (
+          <ul className="absolute z-20 bg-white border rounded-lg shadow-md w-full mt-1 max-h-48 overflow-y-auto text-sm">
+            {sugerencias.map((s, i) => (
+              <li key={i} onClick={() => elegir(s)} className="px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                {s.direccion}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {sinResultados && !mostrarMapa && (
+        <p className="text-xs text-amber-700 mt-1.5">
+          No encontramos esa dirección. <button type="button" onClick={() => setMostrarMapa(true)} className="underline font-semibold">Márcala en el mapa</button>.
+        </p>
+      )}
+
+      {!sinResultados && (
+        <button type="button" onClick={() => setMostrarMapa((v) => !v)} className="text-xs text-taco-dark font-semibold mt-1.5 underline">
+          {mostrarMapa ? "Ocultar mapa" : "o marcar en el mapa"}
+        </button>
+      )}
+
+      {mostrarMapa && (
+        <div className="mt-2">
+          <MapaPunto onElegir={elegirEnMapa} />
+        </div>
       )}
     </div>
   );
 }
 
 function PasoDestino({ comunas, comunaDestino, setComunaDestino, puntoDestino, setPuntoDestino, onContinuar }) {
-  const [sugerencias, setSugerencias] = useState([]);
-
   return (
     <div className="max-w-md mx-auto p-6">
       <p className="text-xs font-bold text-taco uppercase tracking-wide">Paso 1 de 2</p>
@@ -74,8 +132,6 @@ function PasoDestino({ comunas, comunaDestino, setComunaDestino, puntoDestino, s
         placeholder="Escribe tu dirección de destino"
         comuna={comunaDestino}
         valor={puntoDestino}
-        sugerencias={sugerencias}
-        setSugerencias={setSugerencias}
         onElegir={(s) => {
           setPuntoDestino(s);
           if (s.comuna) setComunaDestino(s.comuna);
@@ -105,7 +161,6 @@ function PasoOrigen({
 }) {
   const [geoEstado, setGeoEstado] = useState(puntoOrigen ? "ok" : "buscando");
   const [manual, setManual] = useState(false);
-  const [sugerencias, setSugerencias] = useState([]);
 
   useEffect(() => {
     if (puntoOrigen) return;
@@ -176,8 +231,6 @@ function PasoOrigen({
             placeholder="Escribe tu dirección de origen"
             comuna={comunaOrigen}
             valor={puntoOrigen}
-            sugerencias={sugerencias}
-            setSugerencias={setSugerencias}
             onElegir={(s) => {
               setPuntoOrigen(s);
               if (s.comuna) setComunaOrigen(s.comuna);

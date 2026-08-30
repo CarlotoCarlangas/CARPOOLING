@@ -314,6 +314,31 @@ reemplazando por completo el `Buscar.jsx` "lado a lado" descrito arriba:
   más arriba en este archivo describe el diseño ANTERIOR a este —
   quedó obsoleta, se mantiene solo como historial de decisiones.
 
+**Bug encontrado por el usuario — direcciones sin resultados bloqueaban
+el flujo:** probando en su celular, el usuario escribió una dirección
+real de Peñaflor ("El Roble 925") en el paso de origen y no pasó nada
+— sin sugerencias, sin mensaje, botón "Continuar" deshabilitado sin
+explicación. Se confirmó con curl directo a Nominatim que la causa es
+real y externa: OpenStreetMap no tiene indexada la numeración de esa
+calle (pasa seguido en calles residenciales de comunas periurbanas,
+zonas con menos mapeo comunitario que el centro de Santiago). No es
+arreglable en nuestro código porque depende de la cobertura de datos
+del proveedor gratuito. Se mitigó con dos cambios en `CampoDireccion`
+(dentro de `Buscar.jsx`) y el nuevo `components/MapaPunto.jsx`:
+1. Mensaje explícito "No encontramos esa dirección" cuando la búsqueda
+   termina sin resultados (antes quedaba en silencio).
+2. Respaldo "marcar en el mapa": un mini-mapa de un solo clic que
+   siempre funciona porque no depende de que la calle esté indexada
+   por nombre — usa geocodificación inversa (coordenadas → texto), que
+   es mucho más tolerante que la búsqueda por texto.
+
+De paso apareció un bug relacionado: al elegir una dirección (de la
+lista o del mapa), el propio texto de la dirección elegida disparaba
+una nueva búsqueda automática y el dropdown de sugerencias reaparecía
+encima de la selección. Se arregló con un ref `saltarBusquedaRef` que
+el `useEffect` del debounce revisa para no re-buscar cuando el cambio
+de texto vino de una selección, no de que el usuario tipeó.
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer
