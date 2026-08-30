@@ -1,155 +1,143 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
-import "leaflet.markercluster";
-import "leaflet.markercluster/dist/MarkerCluster.css";
-import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "../services/leafletIconFix";
 
-const CENTRO_INICIAL = [-33.53, -70.8];
+function distanciaM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
-const iconoOrigen = L.divIcon({
-  className: "",
-  html: '<div style="background:#16a34a;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 0 3px rgba(0,0,0,.4)"></div>',
-  iconSize: [14, 14],
-});
-const iconoDestino = L.divIcon({
-  className: "",
-  html: '<div style="background:#e85d2f;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 0 3px rgba(0,0,0,.4)"></div>',
-  iconSize: [14, 14],
-});
+/** El punto de la ruta (origen/destino "oficial" o alguna parada de esa
+ * comuna) más cercano al punto que el pasajero marcó — es el que se
+ * dibuja como pin representante de la ruta en este lado del mapa. */
+function puntoRelevante(ruta, foco, lado) {
+  const comunaLado = lado === "destino" ? ruta.destino_comuna : ruta.origen_comuna;
+  const oficial =
+    lado === "destino"
+      ? { lat: ruta.destino_lat, lng: ruta.destino_lng, direccion: ruta.destino_direccion }
+      : { lat: ruta.origen_lat, lng: ruta.origen_lng, direccion: ruta.origen_direccion };
+  const candidatos = [oficial, ...(ruta.paradas || []).filter((p) => p.comuna === comunaLado)];
+  if (!foco) return candidatos[0];
+  return candidatos.reduce((mejor, p) =>
+    distanciaM(foco.lat, foco.lng, p.lat, p.lng) < distanciaM(foco.lat, foco.lng, mejor.lat, mejor.lng)
+      ? p
+      : mejor
+  );
+}
 
-// Clusters de color distinto para origen (verde) y destino (naranja), para
-// que se sigan distinguiendo aunque el mapa tenga muchos pines agrupados.
-function grupoCluster(colorHex) {
-  return L.markerClusterGroup({
-    iconCreateFunction: (cluster) =>
-      L.divIcon({
-        html: `<div style="background:${colorHex};color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border:2px solid white;box-shadow:0 0 3px rgba(0,0,0,.4)">${cluster.getChildCount()}</div>`,
-        className: "",
-        iconSize: [32, 32],
-      }),
-    spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false,
-    maxClusterRadius: 50,
+function iconoPin({ color, resaltado }) {
+  const size = resaltado ? 40 : 28;
+  const check = resaltado
+    ? `<div style="position:absolute;top:-3px;right:-3px;width:15px;height:15px;border-radius:50%;background:${color};border:2px solid #fff;display:flex;align-items:center;justify-content:center;">
+         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+       </div>`
+    : "";
+  const glow = resaltado
+    ? `<div style="position:absolute;left:50%;bottom:2px;transform:translate(-50%,0);width:${size + 14}px;height:${size + 14}px;border-radius:50%;background:${color}38;"></div>`
+    : "";
+  return L.divIcon({
+    className: "",
+    html: `<div style="position:relative;width:${size}px;height:${size}px;">
+      ${glow}
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" style="position:relative;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));opacity:${resaltado ? 1 : 0.8}">
+        <path d="M12 22s-7.5-7.4-7.5-12.7a7.5 7.5 0 0 1 15 0C19.5 14.6 12 22 12 22z" fill="${color}"/>
+        <circle cx="12" cy="9.3" r="3.2" fill="#fff"/>
+      </svg>
+      ${check}
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
   });
 }
 
 /**
- * Mapa de búsqueda del pasajero: dibuja todas las rutas candidatas (línea +
- * marcador de origen/destino, agrupados en clusters por color cuando hay
- * muchos puntos cercanos). Si el pasajero marcó un punto propio de origen,
- * dibuja el círculo de tolerancia caminable alrededor de él. Si escribió
- * una dirección de destino (`centrarEn`), hace zoom ahí en vez de encuadrar
- * todo — el destino no tiene radio, solo explorar el mapa.
+ * Mapa de resultados del pasajero: dibuja las rutas completas (línea +
+ * el punto más cercano al foco elegido) y un círculo de radio caminable
+ * ajustable alrededor de ese foco (destino u origen, según `lado`). La
+ * ruta con id === `resaltadaId` se dibuja destacada (pin grande, con
+ * glow y check) — pensado para sincronizarse con una lista de tarjetas
+ * fuera del mapa.
  */
-export default function MapaBusqueda({ rutas, circuloOrigen, centrarEn, ladoActivo, onClickMapa }) {
+export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, onClickPin }) {
   const contenedorRef = useRef(null);
   const mapaRef = useRef(null);
   const capasRef = useRef([]);
-  const onClickRef = useRef(onClickMapa);
-  onClickRef.current = onClickMapa;
+  const onClickPinRef = useRef(onClickPin);
+  onClickPinRef.current = onClickPin;
 
   useEffect(() => {
-    const mapa = L.map(contenedorRef.current).setView(CENTRO_INICIAL, 11);
-    // Ver nota en MapaSeleccionRuta.jsx: CARTO Voyager empezó a exigir API
-    // key incluso gratis, así que se volvió al tile estándar de OSM.
+    const mapa = L.map(contenedorRef.current).setView([-33.53, -70.8], 11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; colaboradores de OpenStreetMap",
       maxZoom: 19,
     }).addTo(mapa);
-
-    mapa.on("click", (e) => onClickRef.current?.(e.latlng.lat, e.latlng.lng));
-
     mapaRef.current = mapa;
     return () => mapa.remove();
   }, []);
 
-  // Redibuja rutas + círculos cada vez que cambian
   useEffect(() => {
     const mapa = mapaRef.current;
     if (!mapa) return;
 
     capasRef.current.forEach((c) => mapa.removeLayer(c));
     capasRef.current = [];
-
     const agregar = (capa) => {
       capa.addTo(mapa);
       capasRef.current.push(capa);
     };
 
-    const clusterOrigen = grupoCluster("#16a34a");
-    const clusterDestino = grupoCluster("#e85d2f");
+    const color = lado === "destino" ? "#e85d2f" : "#16a34a";
 
     (rutas || []).forEach((r) => {
+      const destacada = r.id === resaltadaId;
       if (r.geometria?.length) {
-        agregar(L.polyline(r.geometria, { color: "#94a3b8", weight: 4, opacity: 0.8 }));
-      }
-      clusterOrigen.addLayer(
-        L.marker([r.origen_lat, r.origen_lng], { icon: iconoOrigen }).bindPopup(
-          `<b>${r.conductor.nombre}</b><br/>Origen: ${r.origen_direccion}<br/>${r.cupos_disponibles} cupos disponibles<br/><a href="/rutas/${r.id}">Ver detalle →</a>`
-        )
-      );
-      // Las paradas también son puntos de recogida/bajada válidos — se
-      // dibujan igual que el origen o el destino "oficial", agrupadas en
-      // el cluster que corresponda según de qué comuna sean.
-      (r.paradas || []).forEach((p) => {
-        const esLadoDestino = p.comuna && p.comuna === r.destino_comuna;
-        const marcador = L.marker([p.lat, p.lng], {
-          icon: esLadoDestino ? iconoDestino : iconoOrigen,
-        }).bindPopup(
-          `<b>${r.conductor.nombre}</b><br/>Parada: ${p.direccion}<br/>${r.cupos_disponibles} cupos disponibles<br/><a href="/rutas/${r.id}">Ver detalle →</a>`
+        agregar(
+          L.polyline(r.geometria, {
+            color: destacada ? color : "#94a3b8",
+            weight: destacada ? 5 : 3.5,
+            opacity: destacada ? 0.95 : 0.75,
+          })
         );
-        (esLadoDestino ? clusterDestino : clusterOrigen).addLayer(marcador);
-      });
-      clusterDestino.addLayer(
-        L.marker([r.destino_lat, r.destino_lng], { icon: iconoDestino }).bindPopup(
-          `<b>${r.conductor.nombre}</b><br/>Destino: ${r.destino_direccion}<br/>${r.cupos_disponibles} cupos disponibles<br/><a href="/rutas/${r.id}">Ver detalle →</a>`
+      }
+      const punto = puntoRelevante(r, foco, lado);
+      const marcador = L.marker([punto.lat, punto.lng], { icon: iconoPin({ color, resaltado: destacada }) })
+        .bindPopup(
+          `<b>${r.conductor.nombre}</b><br/>${punto.direccion}<br/>$${r.precio_pasajero.toLocaleString("es-CL")} · ${r.cupos_disponibles} cupos`
         )
-      );
+        .on("click", () => onClickPinRef.current?.(r.id));
+      agregar(marcador);
     });
 
-    agregar(clusterOrigen);
-    agregar(clusterDestino);
-
-    if (circuloOrigen) {
+    let circulo = null;
+    if (foco && radioM) {
+      circulo = L.circle([foco.lat, foco.lng], {
+        radius: radioM,
+        color,
+        weight: 2,
+        dashArray: "6 5",
+        fillOpacity: 0.06,
+      });
+      agregar(circulo);
       agregar(
-        L.circle([circuloOrigen.lat, circuloOrigen.lng], {
-          radius: circuloOrigen.radioM,
-          color: "#16a34a",
-          fillOpacity: 0.1,
-        })
+        L.circleMarker([foco.lat, foco.lng], { radius: 5, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 })
       );
     }
-    if (centrarEn) {
-      // El pasajero escribió una dirección de destino: hacemos zoom ahí en
-      // vez de encuadrar todos los resultados — el punto es que explore esa
-      // zona acercándose/alejándose (clustering), no que le acotemos nada.
-      // animate:false porque el salto de zoom puede ser grande (ej. de la
-      // vista general del corredor a una calle específica) y la animación
-      // de Leaflet no siempre completa bien saltos así de grandes.
-      mapa.setView([centrarEn.lat, centrarEn.lng], 15, { animate: false });
-    } else {
-      const puntos = [
-        ...(rutas || []).flatMap((r) => [
-          [r.origen_lat, r.origen_lng],
-          [r.destino_lat, r.destino_lng],
-        ]),
-        ...(circuloOrigen ? [[circuloOrigen.lat, circuloOrigen.lng]] : []),
-      ];
-      if (puntos.length > 0) {
-        mapa.fitBounds(puntos, { padding: [40, 40], maxZoom: 14 });
-      }
-    }
-  }, [rutas, circuloOrigen, centrarEn]);
 
-  return (
-    <div>
-      {ladoActivo && (
-        <p className="text-xs text-white bg-gray-800 inline-block px-2 py-1 rounded mb-1">
-          Haz clic en el mapa para marcar tu {ladoActivo === "origen" ? "origen" : "destino"}
-        </p>
-      )}
-      <div ref={contenedorRef} className="w-full h-[420px] rounded-lg border border-gray-300" />
-    </div>
-  );
+    if (circulo) {
+      mapa.fitBounds(circulo.getBounds(), { padding: [30, 30], maxZoom: 16 });
+    } else if (rutas?.length) {
+      const puntos = rutas.map((r) => {
+        const p = puntoRelevante(r, foco, lado);
+        return [p.lat, p.lng];
+      });
+      mapa.fitBounds(puntos, { padding: [40, 40], maxZoom: 14 });
+    }
+  }, [rutas, lado, foco, radioM, resaltadaId]);
+
+  return <div ref={contenedorRef} className="w-full h-[420px] rounded-lg border border-gray-300" />;
 }

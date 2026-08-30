@@ -257,6 +257,63 @@ ruta a mano) — con respaldo a línea recta si OSRM no responde. De paso
 ahora `distancia_km`/`duracion_min` quedan con datos reales en vez de
 `None`.
 
+### Sesión 2026-08-27 — rediseño completo de Buscar.jsx: destino primero
+
+Tras varias rondas de mockups (ver artifact publicado — carrusel de 6
+pantallas móviles) el usuario definió un flujo **muy distinto** al que
+había en la sección anterior, y esta sesión lo implementó de verdad,
+reemplazando por completo el `Buscar.jsx` "lado a lado" descrito arriba:
+
+- **Destino primero, no origen.** Argumento del usuario: a diferencia de
+  Uber/Cabify (origen fijo = donde estás, solo se elige destino), acá el
+  destino es lo que más le importa al pasajero (llegar cerca de su
+  trabajo/destino real), así que se decide primero.
+- **Flujo de 4 pasos** en `Buscar.jsx` (state `paso`, 1-4, ya no hay
+  selectores de ambos lados en una sola pantalla):
+  1. `PasoDestino`: comuna + dirección (obligatoria — sin coordenadas no
+     hay centro para el círculo de radio).
+  2. `PasoOrigen`: intenta geolocalización del navegador
+     (`services/geolocalizacion.js`, `navigator.geolocation`) automática
+     al entrar; si falla o se rechaza el permiso, cae a comuna+dirección
+     manual. Muestra chip "Detectamos que estás en X" con opción
+     "Cambiar".
+  3. Resultados: filtra **fino por destino** (`destino_lat/lng/radio_m`,
+     slider 100-1000m, default 200m) y **grueso por origen**
+     (`comuna_origen`, sin radio todavía — ver nota abajo). Mapa +
+     lista horizontal de tarjetas (chofer, cupos, precio) sincronizada:
+     tocar una tarjeta O un pin resalta ambos a la vez (pin más grande +
+     glow + check). Cada tarjeta seleccionada muestra "Quitar"
+     (deseleccionar) y "Elegir" (confirmar → pasa a paso 4).
+  4. Resultados-origen: la MISMA lógica pero solo para la ruta elegida,
+     mapa centrado en el origen con su propio radio ajustable, mostrando
+     el punto de recogida de esa ruta más cercano al origen. Botón "Ver
+     detalle del viaje" → navega a `/rutas/:id` (la página de detalle ya
+     existente, sin cambios).
+- **Por qué el radio de origen NO filtra en el paso 3**: probé primero
+  aplicando ambos radios (destino Y origen) desde el inicio, pero con
+  datos reales eso devolvía cero resultados casi siempre (dos radios
+  finos simultáneos son demasiado estrictos). Releyendo lo que pidió el
+  usuario, el radio de origen es una herramienta de **exploración
+  dentro de una ruta ya elegida**, no un filtro de la lista inicial — se
+  corrigió a: destino con radio (preciso) + origen solo por comuna
+  (amplio) para la lista, origen con radio recién en el paso 4.
+- `MapaBusqueda.jsx` (mismo archivo, reescrito): ya no usa
+  `leaflet.markercluster` (los resultados filtrados por radio son pocos,
+  no hace falta agrupar). Props nuevos: `rutas`, `lado`
+  (`"origen"|"destino"`), `foco` (centro del círculo), `radioM`,
+  `resaltadaId`, `onClickPin`. Por cada ruta dibuja el punto más cercano
+  al foco entre {origen/destino "oficial", paradas de esa comuna} — así
+  una parada puede ser el pin representante si está más cerca que el
+  origen/destino oficial de la ruta.
+- Probado de punta a punta con las rutas demo reales (no solo mockup):
+  registrar destino "Manuel Montt, Providencia" + origen por comuna
+  Peñaflor → aparece la ruta de María Fernández (demo) → seleccionar →
+  Elegir → paso 4 con su radio de origen → Ver detalle → llega a
+  `/rutas/2` con los datos reales de esa ruta.
+- Pendiente: la sección "Búsqueda progresiva + layout lado a lado" de
+  más arriba en este archivo describe el diseño ANTERIOR a este —
+  quedó obsoleta, se mantiene solo como historial de decisiones.
+
 **Lo que falta (siguiente paso, aún no construido):** la reserva en sí —
 que el pasajero pida un cupo (`POST /api/requests`), el conductor lo vea y
 acepte/rechace. Se dejó fuera a propósito de este incremento para no hacer
