@@ -12,6 +12,7 @@ import DetalleRuta from "./pages/DetalleRuta";
 import Buscar from "./pages/Buscar";
 import MisReservas from "./pages/MisReservas";
 import Solicitudes from "./pages/Solicitudes";
+import Chat from "./pages/Chat";
 
 function App() {
   return (
@@ -65,6 +66,14 @@ function App() {
                 element={
                   <RutaProtegida>
                     <Solicitudes />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path="/chat/:solicitudId"
+                element={
+                  <RutaProtegida>
+                    <Chat />
                   </RutaProtegida>
                 }
               />

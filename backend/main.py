@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from database import crear_tablas
 from routes.auth import router as auth_router
+from routes.mensajes import router as mensajes_router
 from routes.requests import router as requests_router
 from routes.routes import router as routes_router
 from storage import UPLOADS_DIR
@@ -35,6 +36,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 app.include_router(auth_router, prefix="/api")
 app.include_router(routes_router, prefix="/api")
 app.include_router(requests_router, prefix="/api")
+app.include_router(mensajes_router, prefix="/api")
 
 
 @app.on_event("startup")

@@ -104,6 +104,11 @@ export const api = {
   solicitudesRecibidas: (token) => request("/requests/recibidas", { token }),
   aceptarSolicitud: (id, token) => request(`/requests/${id}/aceptar`, { method: "PUT", token }),
   rechazarSolicitud: (id, token) => request(`/requests/${id}/rechazar`, { method: "PUT", token }),
+
+  datosConversacion: (solicitudId, token) => request(`/requests/${solicitudId}/chat`, { token }),
+  mensajesDeSolicitud: (solicitudId, token) => request(`/requests/${solicitudId}/mensajes`, { token }),
+  enviarMensaje: (solicitudId, texto, token) =>
+    request(`/requests/${solicitudId}/mensajes`, { method: "POST", body: { texto }, token }),
 };
 
 export { API_URL, ApiError };

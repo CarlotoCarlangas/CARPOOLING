@@ -188,3 +188,28 @@ class Solicitud(SQLModel, table=True):
 
     fecha_solicitud: datetime = Field(default_factory=datetime.utcnow)
     fecha_respuesta: Optional[datetime] = None
+
+
+class Mensaje(SQLModel, table=True):
+    """
+    Chat interno entre conductor y pasajero (Módulo 4). Un mensaje siempre
+    pertenece a una `Solicitud` — la conversación se habilita recién
+    cuando esa solicitud queda "aceptada" (antes no tiene sentido
+    coordinar un viaje que no va a pasar).
+
+    TODO PRODUCCIÓN: hoy el frontend consulta por polling (pide mensajes
+    nuevos cada pocos segundos). Para mensajería en tiempo real de verdad
+    habría que agregar WebSockets; se deja fuera de este incremento
+    porque el polling ya resuelve la necesidad del prototipo sin
+    infraestructura nueva.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    solicitud_id: int = Field(foreign_key="solicitud.id", index=True)
+    remitente_id: int = Field(foreign_key="user.id", index=True)
+
+    # PRIVACIDAD: contenido de la conversación entre conductor y
+    # pasajero. Se recolecta solo para coordinar el viaje reservado; no
+    # se usa con ningún otro fin.
+    texto: str
+
+    fecha_envio: datetime = Field(default_factory=datetime.utcnow)

@@ -109,6 +109,15 @@ export default function Solicitudes() {
                 </button>
               </div>
             )}
+
+            {s.estado === "aceptada" && (
+              <Link
+                to={`/chat/${s.id}`}
+                className="mt-3 block text-center bg-taco text-white rounded-lg py-2 text-sm font-semibold"
+              >
+                💬 Chat con {s.pasajero.nombre}
+              </Link>
+            )}
           </div>
         ))}
       </div>

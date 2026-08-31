@@ -45,30 +45,36 @@ export default function MisReservas() {
 
       <div className="space-y-3">
         {solicitudes.map((s) => (
-          <Link
-            key={s.id}
-            to={`/rutas/${s.ruta.id}`}
-            className="block bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition"
-          >
-            <div className="flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold truncate">{s.ruta.origen_direccion}</p>
-                <p className="text-sm text-gray-500 truncate">→ {s.ruta.destino_direccion}</p>
+          <div key={s.id} className="bg-white rounded-lg shadow-sm p-4">
+            <Link to={`/rutas/${s.ruta.id}`} className="block hover:opacity-80 transition">
+              <div className="flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{s.ruta.origen_direccion}</p>
+                  <p className="text-sm text-gray-500 truncate">→ {s.ruta.destino_direccion}</p>
+                </div>
+                <span
+                  className={`flex-shrink-0 text-xs font-semibold border rounded-full px-2.5 py-1 ${ESTADO_ESTILO[s.estado]}`}
+                >
+                  {ESTADO_LABEL[s.estado] || s.estado}
+                </span>
               </div>
-              <span
-                className={`flex-shrink-0 text-xs font-semibold border rounded-full px-2.5 py-1 ${ESTADO_ESTILO[s.estado]}`}
+              <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                <span>🕐 {s.ruta.hora_salida}</span>
+                <span>💰 ${s.ruta.precio_pasajero.toLocaleString("es-CL")}</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Conductor: {s.ruta.conductor.nombre} · Subes en: {s.embarque_direccion}
+              </p>
+            </Link>
+            {s.estado === "aceptada" && (
+              <Link
+                to={`/chat/${s.id}`}
+                className="mt-3 block text-center bg-taco text-white rounded-lg py-2 text-sm font-semibold"
               >
-                {ESTADO_LABEL[s.estado] || s.estado}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
-              <span>🕐 {s.ruta.hora_salida}</span>
-              <span>💰 ${s.ruta.precio_pasajero.toLocaleString("es-CL")}</span>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Conductor: {s.ruta.conductor.nombre} · Subes en: {s.embarque_direccion}
-            </p>
-          </Link>
+                💬 Chat con {s.ruta.conductor.nombre}
+              </Link>
+            )}
+          </div>
         ))}
       </div>
     </div>

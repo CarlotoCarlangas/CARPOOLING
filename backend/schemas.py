@@ -215,3 +215,36 @@ class SolicitudPasajeroOut(BaseModel):
     embarque_direccion: str
     estado: str
     fecha_solicitud: datetime
+
+
+# ---------- Chat (Módulo 4) ----------
+
+class MensajeCreate(BaseModel):
+    texto: str
+
+    @field_validator("texto")
+    @classmethod
+    def texto_no_vacio(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("El mensaje no puede estar vacío")
+        if len(v) > 2000:
+            raise ValueError("El mensaje es demasiado largo")
+        return v
+
+
+class MensajeOut(BaseModel):
+    id: int
+    solicitud_id: int
+    remitente_id: int
+    texto: str
+    fecha_envio: datetime
+
+
+class ConversacionOut(BaseModel):
+    """Datos de cabecera del chat: quién es la otra persona y el estado
+    de la solicitud (para poder avisar si ya no se puede escribir, ej.
+    porque el conductor rechazó la solicitud)."""
+    solicitud_id: int
+    estado: str
+    otra_persona: ConductorResumen  # se reutiliza el mismo resumen para ambos roles

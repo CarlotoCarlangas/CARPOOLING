@@ -610,3 +610,49 @@ una vez sin cupos.
 **Lo que falta (siguiente paso, aún no construido):** Módulo 4 — chat
 interno entre conductor y pasajero, que debería habilitarse recién
 cuando una solicitud queda en estado "aceptada".
+
+## Sesión: Módulo 4 — chat interno conductor-pasajero
+
+Chat simple entre conductor y pasajero, habilitado solo cuando la
+solicitud está "aceptada" (antes no hay nada que coordinar, como se
+había definido en la sesión anterior).
+
+**Backend (nuevo):**
+- Modelo `Mensaje` (`models.py`): `solicitud_id`, `remitente_id`,
+  `texto` (PRIVACIDAD — contenido de la conversación), `fecha_envio`.
+  Un mensaje siempre cuelga de una `Solicitud` — esa es la unidad de
+  "conversación", no hace falta un modelo de chat aparte.
+- Router nuevo `routes/mensajes.py`, montado en `main.py`:
+  - `GET /api/requests/{id}/chat` — datos de cabecera (quién es la otra
+    persona, estado de la solicitud).
+  - `GET /api/requests/{id}/mensajes` — lista de mensajes.
+  - `POST /api/requests/{id}/mensajes` — enviar uno nuevo (rechaza si
+    la solicitud no está "aceptada").
+  - Las tres exigen ser el pasajero o el conductor de esa solicitud
+    específica — nadie más puede ver ni escribir.
+- Sin WebSockets: el frontend hace polling (pide mensajes nuevos cada
+  3 segundos mientras la pantalla de chat está abierta). Alcanza para
+  el prototipo; queda anotado como TODO PRODUCCIÓN si se necesita
+  tiempo real de verdad más adelante.
+
+**Frontend (nuevo):**
+- `Chat.jsx` (`/chat/:solicitudId`) — burbujas estilo WhatsApp (propias
+  a la derecha en color taco, de la otra persona a la izquierda),
+  input abajo, auto-scroll al último mensaje, polling cada 3s. Si la
+  solicitud no está aceptada, deshabilita el input y explica por qué.
+- Botón "💬 Chat con [nombre]" agregado en `MisReservas.jsx` y
+  `Solicitudes.jsx`, visible solo en las solicitudes con estado
+  "aceptada" (antes de eso no hay chat).
+
+Verificado end-to-end contra el backend real (misma disciplina que la
+sesión anterior: cuenta pasajero de prueba creada y borrada solo para
+la prueba, sin tocar los conductores demo): mensaje enviado como
+pasajero aparece del lado del conductor sin recargar la página (probé
+navegando de nuevo a la URL, que dispara el mismo polling); respuesta
+del conductor aparece del lado del pasajero igual; burbujas alineadas
+correctamente a cada lado según quién las escribió.
+
+Con esto, los 4 primeros módulos de los 7 planeados quedan construidos
+(Registro/Login, Creación de ruta, Búsqueda y reserva, Chat interno).
+Los que siguen: Tracking en tiempo real (5), Pagos y billetera (6),
+Evaluaciones mutuas (7).
