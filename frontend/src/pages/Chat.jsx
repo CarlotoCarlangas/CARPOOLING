@@ -2,8 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import { calcularRuta } from "../services/osrm";
+import MapaSeguimiento from "../components/MapaSeguimiento";
 
 const INTERVALO_POLLING_MS = 3000;
+const INTERVALO_TRACKING_MS = 8000;
 
 function formatearHora(fechaIso) {
   return new Date(fechaIso).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
@@ -25,7 +28,10 @@ export default function Chat() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [viaje, setViaje] = useState(null);
+  const [rutaOsrm, setRutaOsrm] = useState(null);
   const finRef = useRef(null);
+  const ultimaPosicionRef = useRef(null);
 
   useEffect(() => {
     api
@@ -56,6 +62,44 @@ export default function Chat() {
   useEffect(() => {
     finRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensajes]);
+
+  // Módulo 5: mientras la solicitud esté aceptada, se pide la posición
+  // del conductor cada pocos segundos (más espaciado que los mensajes —
+  // no hace falta tanta frecuencia y así se golpea menos al servidor).
+  useEffect(() => {
+    if (conversacion?.estado !== "aceptada") return;
+    let activo = true;
+    const cargarViaje = () => {
+      api
+        .viajeDeSolicitud(solicitudId, token)
+        .then((datos) => {
+          if (activo) setViaje(datos);
+        })
+        .catch(() => {});
+    };
+    cargarViaje();
+    const intervalo = setInterval(cargarViaje, INTERVALO_TRACKING_MS);
+    return () => {
+      activo = false;
+      clearInterval(intervalo);
+    };
+  }, [solicitudId, token, conversacion?.estado]);
+
+  // Recalcula la ruta real por calles (OSRM) solo cuando la posición del
+  // conductor cambió de verdad — si no se movió, no tiene sentido volver
+  // a pedirle al servicio de ruteo lo mismo que ya tenemos.
+  useEffect(() => {
+    if (!viaje?.en_curso || viaje.conductor_lat == null || viaje.conductor_lng == null) return;
+    const clave = `${viaje.conductor_lat.toFixed(5)},${viaje.conductor_lng.toFixed(5)}`;
+    if (ultimaPosicionRef.current === clave) return;
+    ultimaPosicionRef.current = clave;
+    calcularRuta([
+      { lat: viaje.conductor_lat, lng: viaje.conductor_lng },
+      { lat: viaje.embarque_lat, lng: viaje.embarque_lng },
+    ])
+      .then(setRutaOsrm)
+      .catch(() => {});
+  }, [viaje]);
 
   const enviar = async (e) => {
     e.preventDefault();
@@ -96,6 +140,28 @@ export default function Chat() {
           )}
         </div>
       </div>
+
+      {viaje?.en_curso && (
+        <div className="bg-white border-b sm:border-x px-4 py-3">
+          <p className="text-xs font-semibold text-green-700 flex items-center gap-1.5 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse"></span>
+            Viaje en curso
+          </p>
+          <MapaSeguimiento
+            conductorLat={viaje.conductor_lat}
+            conductorLng={viaje.conductor_lng}
+            embarque={{ lat: viaje.embarque_lat, lng: viaje.embarque_lng, direccion: viaje.embarque_direccion }}
+            geometria={rutaOsrm?.geometria}
+          />
+          <p className="text-xs text-gray-600 mt-2">
+            {viaje.conductor_lat == null
+              ? "Esperando la ubicación del conductor..."
+              : rutaOsrm
+              ? `🚗 ${rutaOsrm.distanciaKm} km · ~${rutaOsrm.duracionMin} min hasta tu punto de subida`
+              : "Calculando distancia..."}
+          </p>
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto bg-gray-50 sm:border-x px-4 py-4 space-y-2">
         {mensajes.length === 0 && (

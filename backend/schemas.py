@@ -168,6 +168,7 @@ class RouteOut(BaseModel):
     modo_solo_mujeres: bool
     activa: bool
     fecha_creacion: datetime
+    en_curso: bool
 
 
 # ---------- Solicitudes (reserva del pasajero) ----------
@@ -248,3 +249,26 @@ class ConversacionOut(BaseModel):
     solicitud_id: int
     estado: str
     otra_persona: ConductorResumen  # se reutiliza el mismo resumen para ambos roles
+
+
+# ---------- Tracking en tiempo real (Módulo 5) ----------
+
+class UbicacionUpdate(BaseModel):
+    lat: float
+    lng: float
+
+
+class ViajeEnCursoOut(BaseModel):
+    """Lo que necesita el pasajero para dibujar el mapa en vivo: dónde
+    está el conductor ahora mismo (si compartió su ubicación) y cuál es
+    SU punto de subida (para que el navegador calcule la distancia/ETA
+    real por calles con OSRM — el cálculo no se hace en el backend para
+    no depender de un cliente HTTP nuevo, siguiendo el mismo patrón que
+    ya usa la app: OSRM se llama desde el navegador)."""
+    en_curso: bool
+    conductor_lat: Optional[float] = None
+    conductor_lng: Optional[float] = None
+    ubicacion_actualizada: Optional[datetime] = None
+    embarque_lat: float
+    embarque_lng: float
+    embarque_direccion: str

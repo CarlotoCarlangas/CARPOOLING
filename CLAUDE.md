@@ -656,3 +656,66 @@ Con esto, los 4 primeros módulos de los 7 planeados quedan construidos
 (Registro/Login, Creación de ruta, Búsqueda y reserva, Chat interno).
 Los que siguen: Tracking en tiempo real (5), Pagos y billetera (6),
 Evaluaciones mutuas (7).
+
+## Sesión: Módulo 5 — tracking en tiempo real
+
+A diferencia del origen del pasajero (Módulo 3, donde se sacó la
+geolocalización a propósito), acá SÍ es indispensable: el conductor
+tiene que compartir su posición real mientras maneja para que el
+pasajero vea cuánto falta. El usuario pidió que el ETA (tiempo estimado
+de llegada) se calcule con la ruta real por calles (OSRM), no en línea
+recta — más preciso, reutilizando el mismo servicio que ya usa la app
+para trazar rutas.
+
+**Modelo de datos:** no existe un registro histórico por viaje — solo
+la posición ACTUAL del recorrido en curso (si hay uno), guardada
+directo en `Route`: `en_curso`, `ubicacion_lat/lng`,
+`ubicacion_actualizada`. Como `Route` ya tenía datos reales (la ruta
+del propio usuario), hizo falta la misma migración manual de siempre
+(`ALTER TABLE`, ver nota más abajo en este archivo) — `create_all()` no
+agrega columnas a tablas existentes.
+
+**Backend:**
+- `routes/routes.py`: `PUT /{id}/iniciar`, `PUT /{id}/ubicacion` (body
+  `{lat, lng}`), `PUT /{id}/finalizar` — los tres exigen ser el
+  conductor dueño de esa ruta.
+- `routes/requests.py`: `GET /{solicitud_id}/viaje` — para el pasajero
+  (o el conductor) de esa solicitud puntual; junta la posición del
+  conductor (desde la `Route`) con el punto de embarque de ESE pasajero
+  (desde la `Solicitud`) en una sola respuesta.
+- **El backend NO llama a OSRM** — el ETA se calcula en el navegador del
+  pasajero, siguiendo el mismo patrón que ya usaba `CrearRuta.jsx`
+  (`services/osrm.js` → `calcularRuta`). Así no hace falta agregar un
+  cliente HTTP nuevo al backend (hoy no tiene ninguno).
+
+**Frontend:**
+- `DetalleRuta.jsx` (vista del conductor sobre su propia ruta): botón
+  "🚗 Iniciar viaje" → llama a `iniciar`, pide la posición con
+  `navigator.geolocation.getCurrentPosition` y arranca un
+  `setInterval` que la manda cada 8 segundos. "Finalizar viaje" corta
+  el intervalo y avisa al backend. Limitación real, explicada en la
+  pantalla: la ubicación solo se comparte mientras esa pestaña/pantalla
+  sigue abierta — si el conductor cierra la app, deja de actualizarse
+  (no hay ningún proceso en segundo plano); "en_curso" se queda en
+  `true` hasta que vuelva y aprete Finalizar. TODO PRODUCCIÓN: para
+  compartir en segundo plano de verdad hace falta una app nativa o un
+  Service Worker con permisos especiales.
+- `Chat.jsx`: nueva tarjeta arriba de los mensajes, visible solo si
+  `en_curso` — mapa (`MapaSeguimiento.jsx`, componente nuevo) con el
+  auto del conductor y el punto de embarque, más el texto
+  "🚗 X km · ~Y min hasta tu punto de subida". Pide la posición cada 8s;
+  recalcula la ruta OSRM solo si la posición cambió de verdad (no en
+  cada poll) para no golpear de más el servicio gratuito de OSRM.
+
+Verificado end-to-end contra el backend real (misma disciplina de
+siempre: cuenta pasajero de prueba creada y borrada, sin tocar los
+conductores demo ni la ruta real del usuario): "Iniciar viaje" como
+María, el pasajero ve el mapa con el auto + "🚗 2.1 km · ~5 min" (ETA
+real calculado por OSRM, no estimado), "Finalizar viaje" hace que la
+tarjeta desaparezca del lado del pasajero. Pendiente que el usuario
+pruebe con dos sesiones reales (ver nota de esta sesión sobre cómo
+probar solo con una persona: cuenta propia + cuenta demo en una ventana
+de incógnito).
+
+Con el Módulo 5, van 5 de los 7 módulos construidos. Quedan: Pagos y
+billetera (6), Evaluaciones mutuas (7).

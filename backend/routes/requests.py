@@ -20,6 +20,7 @@ from schemas import (
     SolicitudCreate,
     SolicitudOut,
     SolicitudPasajeroOut,
+    ViajeEnCursoOut,
 )
 
 router = APIRouter(prefix="/requests", tags=["requests"])
@@ -237,3 +238,33 @@ def rechazar_solicitud(
     solicitud, ruta = _responder_solicitud(solicitud_id, "rechazada", usuario_actual, session)
     pasajero = session.get(User, solicitud.pasajero_id)
     return _a_solicitud_out(solicitud, ruta, usuario_actual, pasajero)
+
+
+@router.get("/{solicitud_id}/viaje", response_model=ViajeEnCursoOut)
+def viaje_en_curso(
+    solicitud_id: int,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Módulo 5: posición en vivo del conductor + el punto de subida de
+    ESTE pasajero, para que el navegador dibuje el mapa y calcule la
+    distancia/ETA real por calles con OSRM."""
+    solicitud = session.get(Solicitud, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
+    ruta = session.get(Route, solicitud.ruta_id)
+    es_pasajero = solicitud.pasajero_id == usuario_actual.id
+    es_conductor = ruta and ruta.conductor_id == usuario_actual.id
+    if not (es_pasajero or es_conductor):
+        raise HTTPException(status_code=403, detail="No tienes acceso a este viaje")
+
+    return ViajeEnCursoOut(
+        en_curso=ruta.en_curso,
+        conductor_lat=ruta.ubicacion_lat,
+        conductor_lng=ruta.ubicacion_lng,
+        ubicacion_actualizada=ruta.ubicacion_actualizada,
+        embarque_lat=solicitud.embarque_lat,
+        embarque_lng=solicitud.embarque_lng,
+        embarque_direccion=solicitud.embarque_direccion,
+    )

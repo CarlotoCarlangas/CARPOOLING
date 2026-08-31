@@ -160,6 +160,22 @@ class Route(SQLModel, table=True):
 
     fecha_creacion: datetime = Field(default_factory=datetime.utcnow)
 
+    # --- Tracking en tiempo real (Módulo 5) ---
+    # El conductor "inicia" el viaje de hoy, el navegador le manda su
+    # posición cada varios segundos mientras dure, y "finaliza" al llegar.
+    # No existe un registro histórico por viaje — solo la posición ACTUAL
+    # del recorrido en curso (si hay uno). Alcanza para el prototipo: no
+    # hace falta guardar el historial de posiciones para mostrar el mapa
+    # en vivo al pasajero.
+    en_curso: bool = Field(default=False)
+    # PRIVACIDAD (dato sensible - geolocalización): posición en vivo del
+    # conductor mientras el viaje está en curso. Se recolecta solo para
+    # que los pasajeros con cupo aceptado vean cuánto falta para que
+    # llegue a su punto de subida; se deja de compartir al finalizar.
+    ubicacion_lat: Optional[float] = None
+    ubicacion_lng: Optional[float] = None
+    ubicacion_actualizada: Optional[datetime] = None
+
 
 class Solicitud(SQLModel, table=True):
     """

@@ -109,6 +109,12 @@ export const api = {
   mensajesDeSolicitud: (solicitudId, token) => request(`/requests/${solicitudId}/mensajes`, { token }),
   enviarMensaje: (solicitudId, texto, token) =>
     request(`/requests/${solicitudId}/mensajes`, { method: "POST", body: { texto }, token }),
+
+  iniciarViaje: (rutaId, token) => request(`/routes/${rutaId}/iniciar`, { method: "PUT", token }),
+  finalizarViaje: (rutaId, token) => request(`/routes/${rutaId}/finalizar`, { method: "PUT", token }),
+  actualizarUbicacion: (rutaId, lat, lng, token) =>
+    request(`/routes/${rutaId}/ubicacion`, { method: "PUT", body: { lat, lng }, token }),
+  viajeDeSolicitud: (solicitudId, token) => request(`/requests/${solicitudId}/viaje`, { token }),
 };
 
 export { API_URL, ApiError };

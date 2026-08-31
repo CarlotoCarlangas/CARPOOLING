@@ -2,6 +2,7 @@
 Módulo 2: Creación de ruta (conductor).
 Módulo 3: descubrimiento/búsqueda de rutas (pasajero) — /comunas y /buscar.
 """
+from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from typing import List, Optional
 
@@ -11,7 +12,7 @@ from sqlmodel import Session, select
 from database import get_session
 from deps import get_current_user
 from models import Route, User, VehiculoDocumento
-from schemas import ConductorResumen, PuntoRuta, RouteCreate, RouteOut
+from schemas import ConductorResumen, PuntoRuta, RouteCreate, RouteOut, UbicacionUpdate
 
 router = APIRouter(prefix="/routes", tags=["routes"])
 
@@ -49,6 +50,7 @@ def _a_route_out(ruta: Route, conductor: User) -> RouteOut:
         modo_solo_mujeres=ruta.modo_solo_mujeres,
         activa=ruta.activa,
         fecha_creacion=ruta.fecha_creacion,
+        en_curso=ruta.en_curso,
     )
 
 
@@ -264,3 +266,67 @@ def detalle_ruta(ruta_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Ruta no encontrada")
     conductor = session.get(User, ruta.conductor_id)
     return _a_route_out(ruta, conductor)
+
+
+def _ruta_del_conductor(ruta_id: int, usuario_actual: User, session: Session) -> Route:
+    ruta = session.get(Route, ruta_id)
+    if not ruta:
+        raise HTTPException(status_code=404, detail="Ruta no encontrada")
+    if ruta.conductor_id != usuario_actual.id:
+        raise HTTPException(status_code=403, detail="Esta ruta no te pertenece")
+    return ruta
+
+
+@router.put("/{ruta_id}/iniciar", response_model=RouteOut)
+def iniciar_viaje(
+    ruta_id: int,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """El conductor marca que salió a manejar esta ruta hoy — desde acá
+    su navegador empieza a mandar su posición cada pocos segundos."""
+    ruta = _ruta_del_conductor(ruta_id, usuario_actual, session)
+    ruta.en_curso = True
+    ruta.ubicacion_lat = None
+    ruta.ubicacion_lng = None
+    ruta.ubicacion_actualizada = None
+    session.add(ruta)
+    session.commit()
+    session.refresh(ruta)
+    return _a_route_out(ruta, usuario_actual)
+
+
+@router.put("/{ruta_id}/ubicacion", response_model=RouteOut)
+def actualizar_ubicacion(
+    ruta_id: int,
+    datos: UbicacionUpdate,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    ruta = _ruta_del_conductor(ruta_id, usuario_actual, session)
+    if not ruta.en_curso:
+        raise HTTPException(status_code=400, detail="Primero debes iniciar el viaje")
+    ruta.ubicacion_lat = datos.lat
+    ruta.ubicacion_lng = datos.lng
+    ruta.ubicacion_actualizada = datetime.utcnow()
+    session.add(ruta)
+    session.commit()
+    session.refresh(ruta)
+    return _a_route_out(ruta, usuario_actual)
+
+
+@router.put("/{ruta_id}/finalizar", response_model=RouteOut)
+def finalizar_viaje(
+    ruta_id: int,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    ruta = _ruta_del_conductor(ruta_id, usuario_actual, session)
+    ruta.en_curso = False
+    ruta.ubicacion_lat = None
+    ruta.ubicacion_lng = None
+    ruta.ubicacion_actualizada = None
+    session.add(ruta)
+    session.commit()
+    session.refresh(ruta)
+    return _a_route_out(ruta, usuario_actual)
