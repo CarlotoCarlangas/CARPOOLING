@@ -89,6 +89,7 @@ export const api = {
 
   crearRuta: (datos, token) => request("/routes", { method: "POST", body: datos, token }),
   detalleRuta: (id) => request(`/routes/${id}`),
+  rutasDeConductor: (conductorId) => request(`/routes?conductor_id=${conductorId}`),
 
   comunasDisponibles: () => request("/routes/comunas"),
   buscarRutas: (params = {}) => {

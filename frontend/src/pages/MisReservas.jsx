@@ -67,12 +67,20 @@ export default function MisReservas() {
               </p>
             </Link>
             {s.estado === "aceptada" && (
-              <Link
-                to={`/chat/${s.id}`}
-                className="mt-3 block text-center bg-taco text-white rounded-lg py-2 text-sm font-semibold"
-              >
-                💬 Chat con {s.ruta.conductor.nombre}
-              </Link>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Link
+                  to={`/viaje/${s.id}`}
+                  className="text-center bg-green-600 text-white rounded-lg py-2 text-sm font-semibold"
+                >
+                  📍 Ver en vivo
+                </Link>
+                <Link
+                  to={`/chat/${s.id}`}
+                  className="text-center bg-white border border-taco text-taco rounded-lg py-2 text-sm font-semibold"
+                >
+                  💬 Chat
+                </Link>
+              </div>
             )}
           </div>
         ))}

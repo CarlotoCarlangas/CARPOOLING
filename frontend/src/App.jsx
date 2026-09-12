@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { ViajeProvider } from "./context/ViajeContext";
 import Navbar from "./components/Navbar";
 import RutaProtegida from "./components/RutaProtegida";
 import Inicio from "./pages/Inicio";
@@ -13,10 +14,12 @@ import Buscar from "./pages/Buscar";
 import MisReservas from "./pages/MisReservas";
 import Solicitudes from "./pages/Solicitudes";
 import Chat from "./pages/Chat";
+import ViajeEnVivo from "./pages/ViajeEnVivo";
 
 function App() {
   return (
     <AuthProvider>
+      <ViajeProvider>
       <BrowserRouter>
         {/* h-full (no h-dvh): index.css ya encadena html/body/#root a
             height:100%, que es más compatible en navegadores de Android
@@ -77,10 +80,19 @@ function App() {
                   </RutaProtegida>
                 }
               />
+              <Route
+                path="/viaje/:solicitudId"
+                element={
+                  <RutaProtegida>
+                    <ViajeEnVivo />
+                  </RutaProtegida>
+                }
+              />
             </Routes>
           </main>
         </div>
       </BrowserRouter>
+      </ViajeProvider>
     </AuthProvider>
   );
 }

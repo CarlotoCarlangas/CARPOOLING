@@ -1,12 +1,12 @@
 export default function Terminos() {
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-sm my-6 text-sm leading-relaxed">
-      <h1 className="text-2xl font-bold mb-4">Términos y Política de Privacidad de TACO</h1>
+      <h1 className="text-2xl font-bold mb-4">Términos y Política de Privacidad de Carpooling</h1>
 
-      <h2 className="font-semibold mt-4 mb-1">1. Qué es TACO</h2>
+      <h2 className="font-semibold mt-4 mb-1">1. Qué es Carpooling</h2>
       <p>
-        TACO es una plataforma para compartir gastos de viaje entre personas que hacen
-        el mismo trayecto (carpooling). TACO no es una empresa de transporte ni presta
+        Carpooling es una plataforma para compartir gastos de viaje entre personas que hacen
+        el mismo trayecto (carpooling). Carpooling no es una empresa de transporte ni presta
         servicios de transporte remunerado: pone en contacto a un conductor que ya
         realiza el viaje con pasajeros que quieren compartirlo, y cobra una comisión
         por usar la plataforma (15% al conductor, 10% al pasajero).

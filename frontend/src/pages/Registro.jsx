@@ -127,7 +127,7 @@ export default function Registro() {
         </div>
 
         <div>
-          <p className="text-sm font-medium mb-1">¿Cómo quieres usar TACO?</p>
+          <p className="text-sm font-medium mb-1">¿Cómo quieres usar Carpooling?</p>
           <label className="flex items-center gap-2 text-sm mb-1">
             <input
               type="checkbox"
@@ -185,7 +185,7 @@ export default function Registro() {
             <Link to="/terminos" target="_blank" className="text-taco underline">
               Términos y la Política de Privacidad
             </Link>{" "}
-            de TACO, incluyendo el tratamiento de mis datos personales según lo descrito.
+            de Carpooling, incluyendo el tratamiento de mis datos personales según lo descrito.
           </span>
         </label>
 

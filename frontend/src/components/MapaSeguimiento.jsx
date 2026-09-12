@@ -26,13 +26,16 @@ function iconoEmbarque() {
  * la línea de la ruta real por calles entre ambos (calculada aparte con
  * OSRM y pasada acá ya lista — este componente solo dibuja).
  */
-export default function MapaSeguimiento({ conductorLat, conductorLng, embarque, geometria }) {
+export default function MapaSeguimiento({ conductorLat, conductorLng, embarque, geometria, fill = false }) {
   const contenedorRef = useRef(null);
   const mapaRef = useRef(null);
   const capasRef = useRef([]);
 
   useEffect(() => {
-    const mapa = L.map(contenedorRef.current, { scrollWheelZoom: false });
+    // A pantalla completa (fill) se saca el control +/- y se hace zoom con los
+    // dedos, como en Uber/Rappi — el mapa es el protagonista, sin botones que
+    // choquen con los controles flotantes.
+    const mapa = L.map(contenedorRef.current, { scrollWheelZoom: false, zoomControl: !fill });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; colaboradores de OpenStreetMap",
       maxZoom: 19,
@@ -75,5 +78,10 @@ export default function MapaSeguimiento({ conductorLat, conductorLng, embarque, 
     }
   }, [conductorLat, conductorLng, embarque, geometria]);
 
-  return <div ref={contenedorRef} className="w-full h-[220px] rounded-lg border border-gray-300" />;
+  return (
+    <div
+      ref={contenedorRef}
+      className={fill ? "w-full h-full" : "w-full h-[220px] rounded-lg border border-gray-300"}
+    />
+  );
 }

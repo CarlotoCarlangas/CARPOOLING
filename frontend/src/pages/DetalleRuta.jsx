@@ -1,14 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useViaje } from "../context/ViajeContext";
 import { api } from "../services/api";
 import MapaVistaRuta from "../components/MapaVistaRuta";
-
-// Cada cuántos milisegundos el navegador del conductor manda su posición
-// mientras el viaje está en curso. Un intervalo corto da un mapa más fluido
-// para el pasajero, pero gasta más batería y datos — 8s es un compromiso
-// razonable para el prototipo.
-const INTERVALO_UBICACION_MS = 8000;
 
 const DIA_LABEL = {
   lunes: "Lunes", martes: "Martes", miercoles: "Miércoles", jueves: "Jueves",
@@ -26,7 +21,7 @@ export default function DetalleRuta() {
   const [solicitudEnviada, setSolicitudEnviada] = useState(false);
   const [cambiandoViaje, setCambiandoViaje] = useState(false);
   const [errorViaje, setErrorViaje] = useState("");
-  const intervaloUbicacionRef = useRef(null);
+  const { iniciar, finalizar } = useViaje();
 
   // El punto de embarque viene del paso 4 del buscador (elegido entre las
   // paradas reales del viaje). Si no está — porque se llegó acá por otra
@@ -37,16 +32,6 @@ export default function DetalleRuta() {
   useEffect(() => {
     api.detalleRuta(id).then(setRuta).catch((e) => setError(e.message));
   }, [id]);
-
-  // Si el conductor cierra esta pantalla con el viaje en curso, hay que
-  // dejar de mandar ubicación desde ESTE navegador (no tiene sentido
-  // seguir el setInterval si ya no está viendo la pantalla) — el viaje
-  // sigue "en_curso" en el servidor hasta que vuelva y lo finalice.
-  useEffect(() => {
-    return () => {
-      if (intervaloUbicacionRef.current) clearInterval(intervaloUbicacionRef.current);
-    };
-  }, []);
 
   if (error) return <p className="text-red-600 text-center mt-8">{error}</p>;
   if (!ruta) return <p className="text-center mt-8">Cargando...</p>;
@@ -66,25 +51,15 @@ export default function DetalleRuta() {
     }
   };
 
-  const mandarUbicacionActual = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        api.actualizarUbicacion(ruta.id, pos.coords.latitude, pos.coords.longitude, token).catch(() => {});
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
+  // El inicio/fin del viaje y el envío continuo de ubicación viven en el
+  // ViajeContext (a nivel de app), así el envío no se corta si el chofer
+  // cambia de pantalla. Acá solo se dispara y se refresca el estado local.
   const iniciarViaje = async () => {
     setCambiandoViaje(true);
     setErrorViaje("");
     try {
-      const actualizada = await api.iniciarViaje(ruta.id, token);
+      const actualizada = await iniciar(ruta.id);
       setRuta(actualizada);
-      mandarUbicacionActual();
-      intervaloUbicacionRef.current = setInterval(mandarUbicacionActual, INTERVALO_UBICACION_MS);
     } catch (e) {
       setErrorViaje(e.message);
     } finally {
@@ -96,9 +71,7 @@ export default function DetalleRuta() {
     setCambiandoViaje(true);
     setErrorViaje("");
     try {
-      if (intervaloUbicacionRef.current) clearInterval(intervaloUbicacionRef.current);
-      intervaloUbicacionRef.current = null;
-      const actualizada = await api.finalizarViaje(ruta.id, token);
+      const actualizada = await finalizar(ruta.id);
       setRuta(actualizada);
     } catch (e) {
       setErrorViaje(e.message);

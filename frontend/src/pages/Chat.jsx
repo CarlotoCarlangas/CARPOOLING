@@ -160,6 +160,12 @@ export default function Chat() {
               ? `🚗 ${rutaOsrm.distanciaKm} km · ~${rutaOsrm.duracionMin} min hasta tu punto de subida`
               : "Calculando distancia..."}
           </p>
+          <Link
+            to={`/viaje/${solicitudId}`}
+            className="mt-2 block text-center text-taco text-sm font-semibold underline"
+          >
+            Ver en pantalla completa →
+          </Link>
         </div>
       )}
 
