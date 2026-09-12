@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import { buscarDireccion, direccionDesdeCoordenadas } from "../services/geocoding";
 import MapaBusqueda from "../components/MapaBusqueda";
+import { COMUNAS_RM } from "../data/comunasRM";
 
 const RADIO_DEFECTO_M = 200;
 const RADIO_PREVISUALIZACION_M = 350;
@@ -379,7 +380,9 @@ function ChipDireccion({ color, texto, claseExtra }) {
 
 export default function Buscar() {
   const navigate = useNavigate();
-  const [comunas, setComunas] = useState([]);
+  // Todas las comunas de la Región Metropolitana (lista oficial INE DPA 2024),
+  // no solo las que ya tienen rutas: el pasajero puede elegir cualquier comuna.
+  const [comunas] = useState(COMUNAS_RM);
   const [paso, setPaso] = useState(1);
 
   const [comunaDestino, setComunaDestino] = useState("");
@@ -394,10 +397,6 @@ export default function Buscar() {
   const [rutaResaltadaId, setRutaResaltadaId] = useState(null);
   const [rutaElegidaId, setRutaElegidaId] = useState(null);
   const [puntoEmbarqueId, setPuntoEmbarqueId] = useState(null);
-
-  useEffect(() => {
-    api.comunasDisponibles().then(setComunas).catch(() => setComunas([]));
-  }, []);
 
   useEffect(() => {
     if (paso < 3 || !puntoDestino || !comunaOrigen) return;
