@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carpooling — Vista Móvil</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --verde: #2E7D32;
+    --verde-claro: #4CAF50;
+    --accent: #F5B731;
+    --bg: #0a0e17;
+    --borde: rgba(255,255,255,0.08);
+  }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .topbar {
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--borde);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo {
+    font-size: 20px; font-weight: 800; letter-spacing: 1px;
+    background: linear-gradient(135deg, var(--verde-claro), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .badge {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    background: rgba(245,183,49,0.1); border: 1px solid rgba(245,183,49,0.2);
+    padding: 3px 10px; border-radius: 20px;
+  }
+  .sep { flex: 1; }
+  .topbtn {
+    padding: 7px 14px; border: 1px solid var(--borde); border-radius: 8px;
+    background: transparent; color: rgba(255,255,255,0.6); font-size: 12px;
+    font-weight: 600; cursor: pointer; font-family: inherit; transition: all .2s;
+  }
+  .topbtn:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .escena {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    padding: 28px 20px;
+    flex-wrap: wrap;
+  }
+  .telefono-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .telefono {
+    width: 384px;
+    background: #0d0d0d;
+    border-radius: 46px;
+    padding: 13px;
+    box-shadow: 0 0 0 2px #1c1c1c, 0 0 0 3px rgba(255,255,255,0.05),
+                0 30px 70px rgba(0,0,0,0.6), 0 0 60px rgba(46,125,50,0.09);
+    position: relative;
+  }
+  .pantalla {
+    position: relative;
+    width: 100%;
+    height: 780px;
+    background: #fff;
+    border-radius: 34px;
+    overflow: hidden;
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 26px; background: #0d0d0d;
+    border-radius: 0 0 18px 18px; z-index: 30;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .notch .cam { width: 8px; height: 8px; border-radius: 50%; background: #23252b; }
+  .notch .speaker { width: 40px; height: 4px; border-radius: 3px; background: #23252b; }
+  iframe#app { width: 100%; height: 100%; border: none; display: block; background: #fff; }
+  .home-bar {
+    position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 5px; border-radius: 3px; background: rgba(0,0,0,0.28); z-index: 30;
+  }
+  .estado { display: flex; align-items: center; gap: 7px; font-size: 12px; color: rgba(255,255,255,0.45); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--verde-claro); box-shadow: 0 0 8px var(--verde-claro); animation: pulso 2s infinite; }
+  @keyframes pulso { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .panel { width: 270px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: rgba(255,255,255,0.03); border: 1px solid var(--borde); border-radius: 16px; padding: 16px; }
+  .card h3 { font-size: 11px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+  .row:last-child { border-bottom: none; }
+  .row .k { color: rgba(255,255,255,0.4); }
+  .row .v { color: rgba(255,255,255,0.9); font-weight: 600; }
+  .mono { font-family: ui-monospace, monospace; color: var(--verde-claro); font-weight: 700; }
+  .nav-links { display: flex; flex-direction: column; gap: 4px; }
+  .nav-link {
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 9px;
+    font-size: 13px; color: rgba(255,255,255,0.6); cursor: pointer; transition: all .15s; background: none; border: none; font-family: inherit; text-align: left; width: 100%;
+  }
+  .nav-link:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  .nav-link .ico { width: 20px; text-align: center; font-size: 15px; }
+  .hint { font-size: 11px; color: rgba(255,255,255,0.4); line-height: 1.5; margin-top: 8px; }
+  .footer { padding: 10px; text-align: center; font-size: 11px; color: rgba(255,255,255,0.2); }
+  .cargando { position: absolute; inset: 0; background: #0e1520; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 20; border-radius: 34px; }
+  .spinner { width: 34px; height: 34px; border: 3px solid rgba(255,255,255,0.08); border-top-color: var(--verde-claro); border-radius: 50%; animation: girar .8s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+  .cargando p { font-size: 13px; color: rgba(255,255,255,0.4); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">🚗 Carpooling</span>
+  <span class="badge">Vista Móvil</span>
+  <span class="sep"></span>
+  <button class="topbtn" onclick="irA('/')">🏠 Inicio</button>
+  <button class="topbtn" onclick="recargar()">↺ Recargar</button>
+</div>
+
+<div class="escena">
+  <div class="telefono-wrap">
+    <div class="telefono">
+      <div class="pantalla">
+        <div class="notch"><span class="speaker"></span><span class="cam"></span></div>
+        <div class="cargando" id="cargando"><div class="spinner"></div><p>Cargando la app…</p></div>
+        <!-- src se fija por JS a location.origin (mismo origen que este visor),
+             así el localStorage de la app es de PRIMERA PARTE y la sesión no se
+             pierde al recargar/navegar. -->
+        <iframe id="app" allow="geolocation; clipboard-read; clipboard-write" onload="document.getElementById('cargando').style.display='none'"></iframe>
+        <div class="home-bar"></div>
+      </div>
+    </div>
+    <div class="estado"><span class="dot"></span> App corriendo en vivo · iPhone 14 Pro (390 × 844)</div>
+  </div>
+
+  <div class="panel">
+    <div class="card">
+      <h3>Cuentas de prueba</h3>
+      <div class="row"><span class="k">Conductora demo</span><span class="v mono">maria.demo@taco.cl</span></div>
+      <div class="row"><span class="k">Contraseña</span><span class="v mono">demo12345</span></div>
+      <p class="hint">Como pasajero, crea una cuenta nueva desde "Crear cuenta" para probar el flujo completo (reservar → chat → ver en vivo).</p>
+    </div>
+
+    <div class="card">
+      <h3>Ir a</h3>
+      <div class="nav-links">
+        <button class="nav-link" onclick="irA('/')"><span class="ico">🏠</span> Inicio</button>
+        <button class="nav-link" onclick="irA('/buscar')"><span class="ico">🔍</span> Buscar viaje</button>
+        <button class="nav-link" onclick="irA('/crear-ruta')"><span class="ico">🗺️</span> Publicar ruta</button>
+        <button class="nav-link" onclick="irA('/mis-reservas')"><span class="ico">🎟️</span> Mis reservas</button>
+        <button class="nav-link" onclick="irA('/solicitudes')"><span class="ico">📨</span> Solicitudes (conductor)</button>
+        <button class="nav-link" onclick="irA('/login')"><span class="ico">🔐</span> Ingresar</button>
+        <button class="nav-link" onclick="irA('/registro')"><span class="ico">✍️</span> Crear cuenta</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Consejo</h3>
+      <p class="hint">Esta vista es para verla cómoda en el PC con forma de celular. Para probar en tu teléfono real (otra red), usa <b style="color:var(--verde-claro)">PUBLICAR_ONLINE.bat</b>.</p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Carpooling · Vista móvil local — la app corre en el mismo origen que este visor</div>
+
+<script>
+  // El visor y la app comparten origen (este archivo se sirve desde el mismo
+  // servidor que la app: http://localhost:5173/visor_movil.html). Por eso el
+  // iframe apunta a location.origin y NO a una URL fija: así el navegador
+  // trata el localStorage como de primera parte y la sesión se mantiene.
+  const ORIGEN = location.origin;
+  const app = document.getElementById('app');
+  app.src = ORIGEN + '/';
+  function recargar() {
+    document.getElementById('cargando').style.display = 'flex';
+    app.src = app.src;
+  }
+  function irA(ruta) {
+    document.getElementById('cargando').style.display = 'flex';
+    app.src = ORIGEN + ruta;
+  }
+  setTimeout(() => { const c = document.getElementById('cargando'); if (c) c.style.display = 'none'; }, 8000);
+</script>
+
+</body>
+</html>

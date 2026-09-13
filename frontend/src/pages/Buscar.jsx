@@ -154,12 +154,16 @@ function CampoDireccion({ placeholder, comuna, valor, onElegir }) {
       </div>
 
       {sinResultados && (
-        <p className="text-xs text-amber-700 mt-1.5">
-          No encontramos esa dirección. Puedes tocar directamente el punto en el mapa de arriba.
-        </p>
+        <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+          <p className="text-sm font-semibold text-amber-800">No encontramos esa dirección</p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            No importa — <b>marca tu punto tocándolo en el mapa de abajo</b> 👇. Lo ubicamos
+            automáticamente ahí donde toques.
+          </p>
+        </div>
       )}
       {!sinResultados && (
-        <p className="text-xs text-gray-400 mt-1.5">o toca el punto directamente en el mapa de arriba</p>
+        <p className="text-xs text-gray-400 mt-1.5">o marca el punto tocándolo directamente en el mapa 👇</p>
       )}
     </div>
   );
@@ -350,21 +354,27 @@ function TarjetaParada({ punto, seleccionada, onClick }) {
 }
 
 function RadioSlider({ etiqueta, valor, setValor, colorClase }) {
+  const etiquetaValor =
+    valor >= 1000 ? `${(valor / 1000).toFixed(valor % 1000 === 0 ? 0 : 1)} km` : `${valor} m`;
   return (
     <div className="bg-gray-50 rounded-lg p-3 mb-3">
       <div className="flex justify-between items-baseline text-xs mb-1">
         <span className="font-semibold text-gray-700">{etiqueta}</span>
-        <span className={`font-bold ${colorClase}`}>{valor} m</span>
+        <span className={`font-bold ${colorClase}`}>{etiquetaValor}</span>
       </div>
       <input
         type="range"
         min={100}
-        max={1000}
+        max={5000}
         step={50}
         value={valor}
         onChange={(e) => setValor(Number(e.target.value))}
         className="w-full"
       />
+      <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+        <span>100 m</span>
+        <span>5 km</span>
+      </div>
     </div>
   );
 }
@@ -522,7 +532,7 @@ export default function Buscar() {
           disabled={!puntoEmbarqueId}
           className="w-full bg-taco text-white py-3 rounded-lg font-semibold disabled:opacity-40"
         >
-          Ver detalle del viaje
+          Ver viaje y pedir cupo
         </button>
       </PantallaConMapa>
     );

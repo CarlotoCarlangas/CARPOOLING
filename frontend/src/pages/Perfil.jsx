@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
@@ -9,7 +10,13 @@ const DOC_LABELS = {
 };
 
 export default function Perfil() {
-  const { usuario, token, refrescarPerfil } = useAuth();
+  const { usuario, token, refrescarPerfil, cerrarSesion } = useAuth();
+  const navigate = useNavigate();
+
+  const salir = () => {
+    cerrarSesion();
+    navigate("/login");
+  };
   const [vehiculo, setVehiculo] = useState(null);
   const [datosVehiculo, setDatosVehiculo] = useState({ patente: "", marca: "", modelo: "", color: "" });
   const [mensaje, setMensaje] = useState("");
@@ -187,6 +194,27 @@ export default function Perfil() {
       )}
 
       {mensaje && <p className="text-sm text-gray-700">{mensaje}</p>}
+
+      {/* Acceso al panel de administración — solo para el dueño (es_admin). */}
+      {usuario.es_admin && (
+        <Link
+          to="/admin"
+          className="block bg-gradient-to-br from-slate-900 to-blue-900 text-white rounded-2xl p-4 shadow-flotante"
+        >
+          <p className="text-xs font-bold uppercase tracking-wider text-blue-300/80">Administración</p>
+          <p className="text-lg font-bold leading-tight mt-0.5">Panel de control 🛠️</p>
+          <p className="text-white/70 text-sm mt-1">
+            Ver todos los usuarios, rutas y el estado de la plataforma.
+          </p>
+        </Link>
+      )}
+
+      <button
+        onClick={salir}
+        className="w-full border-2 border-red-200 text-red-600 font-semibold py-3 rounded-xl hover:bg-red-50 transition"
+      >
+        Cerrar sesión
+      </button>
     </div>
   );
 }

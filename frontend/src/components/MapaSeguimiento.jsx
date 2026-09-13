@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
+import { agregarCapaBase } from "../services/basemap";
 import "../services/leafletIconFix";
 
 function iconoAuto() {
@@ -36,10 +37,7 @@ export default function MapaSeguimiento({ conductorLat, conductorLng, embarque, 
     // dedos, como en Uber/Rappi — el mapa es el protagonista, sin botones que
     // choquen con los controles flotantes.
     const mapa = L.map(contenedorRef.current, { scrollWheelZoom: false, zoomControl: !fill });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; colaboradores de OpenStreetMap",
-      maxZoom: 19,
-    }).addTo(mapa);
+    agregarCapaBase(mapa);
     mapaRef.current = mapa;
     return () => mapa.remove();
   }, []);

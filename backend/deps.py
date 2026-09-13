@@ -24,3 +24,17 @@ def get_current_user(
     if not usuario:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o expirado")
     return usuario
+
+
+def get_admin_user(usuario: User = Depends(get_current_user)) -> User:
+    """
+    Igual que get_current_user, pero además exige que la persona sea el
+    administrador de la plataforma. Protege todos los endpoints del panel
+    admin (routes/admin.py).
+    """
+    if not usuario.es_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso reservado al administrador de la plataforma",
+        )
+    return usuario

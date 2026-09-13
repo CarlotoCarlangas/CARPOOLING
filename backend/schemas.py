@@ -71,6 +71,7 @@ class UserOut(BaseModel):
     foto_url: Optional[str] = None
     es_conductor: bool
     es_pasajero: bool
+    es_admin: bool = False
     modo_solo_mujeres: bool
     calificacion_promedio: Optional[float] = None
     total_calificaciones: int
@@ -136,6 +137,34 @@ class RouteCreate(BaseModel):
         return v
 
 
+class RouteEditRequest(BaseModel):
+    """Edición de una ruta ya publicada (Módulo "Mis Viajes"). Todos los
+    campos son opcionales: se actualiza solo lo que venga. El origen y el
+    destino NO se editan acá (se mantienen fijos, como pidió el usuario)."""
+    apodo: Optional[str] = None
+    cupos_totales: Optional[int] = None
+    precio_sugerido: Optional[int] = None
+    hora_salida: Optional[str] = None
+    dias_recurrencia: Optional[List[str]] = None
+    modo_solo_mujeres: Optional[bool] = None
+    paradas: Optional[List[PuntoRuta]] = None
+    activa: Optional[bool] = None
+
+    @field_validator("cupos_totales")
+    @classmethod
+    def cupos_validos(cls, v):
+        if v is not None and (v < 1 or v > 8):
+            raise ValueError("Los cupos deben ser entre 1 y 8")
+        return v
+
+    @field_validator("precio_sugerido")
+    @classmethod
+    def precio_valido(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("El precio no puede ser negativo")
+        return v
+
+
 class ConductorResumen(BaseModel):
     id: int
     nombre: str
@@ -146,6 +175,7 @@ class ConductorResumen(BaseModel):
 
 class RouteOut(BaseModel):
     id: int
+    apodo: Optional[str] = None
     conductor: ConductorResumen
     origen_lat: float
     origen_lng: float
@@ -207,6 +237,8 @@ class SolicitudOut(BaseModel):
     embarque_lng: float
     embarque_direccion: str
     estado: str
+    motivo_rechazo: Optional[str] = None
+    viaje_finalizado: bool = False
     fecha_solicitud: datetime
 
 
@@ -215,7 +247,64 @@ class SolicitudPasajeroOut(BaseModel):
     ruta: RutaResumen
     embarque_direccion: str
     estado: str
+    motivo_rechazo: Optional[str] = None
+    viaje_finalizado: bool = False
     fecha_solicitud: datetime
+
+
+class RechazoRequest(BaseModel):
+    """Motivo con que el conductor rechaza una solicitud (respuesta rápida
+    predefinida o texto libre). Opcional para no romper llamadas antiguas."""
+    motivo: Optional[str] = None
+
+
+# ---------- Notificaciones / avisos ----------
+
+class NotificacionOut(BaseModel):
+    """Un aviso para el usuario. `id` es string para poder unificar avisos
+    guardados (evento) con los recordatorios calculados al vuelo (que no
+    tienen fila en la BD). `minutos_restantes` solo viene en recordatorios."""
+    id: str
+    tipo: str  # "viaje_iniciado" | "recordatorio"
+    titulo: str
+    mensaje: str
+    ruta_id: Optional[int] = None
+    solicitud_id: Optional[int] = None
+    leida: bool = False
+    minutos_restantes: Optional[int] = None
+    fecha: datetime
+
+
+# ---------- Evaluación mutua (Módulo 7) ----------
+
+class EvaluacionCreate(BaseModel):
+    estrellas: int
+    comentario: Optional[str] = None
+
+    @field_validator("estrellas")
+    @classmethod
+    def estrellas_validas(cls, v: int) -> int:
+        if v < 1 or v > 5:
+            raise ValueError("Las estrellas deben ser entre 1 y 5")
+        return v
+
+    @field_validator("comentario")
+    @classmethod
+    def comentario_corto(cls, v):
+        if v and len(v) > 500:
+            raise ValueError("El comentario es demasiado largo")
+        return v
+
+
+class EvaluacionEstado(BaseModel):
+    """Lo que el frontend necesita para saber si mostrar el formulario de
+    evaluación de un viaje puntual, y a quién se evalúa."""
+    viaje_finalizado: bool
+    ya_evaluado: bool               # ¿el usuario actual ya calificó?
+    otra_persona_nombre: str        # a quién le toca evaluar
+    otra_persona_foto: Optional[str] = None
+    estrellas_previas: Optional[int] = None
+    comentario_previo: Optional[str] = None
 
 
 # ---------- Chat (Módulo 4) ----------
@@ -272,3 +361,78 @@ class ViajeEnCursoOut(BaseModel):
     embarque_lat: float
     embarque_lng: float
     embarque_direccion: str
+
+
+# ---------- Panel de administración (solo el dueño de la plataforma) ----------
+# Estos esquemas son de SOLO LECTURA: el admin observa el estado del sistema.
+# Se listan los campos de forma explícita (whitelist) a propósito, para NO
+# exponer nunca `password_hash` ni `token` de otras personas.
+
+class AdminVehiculoOut(BaseModel):
+    """Resumen del vehículo/documentos de un conductor, sin las URLs de los
+    archivos (basta saber si cada documento fue subido y si está verificado)."""
+    patente: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
+    color: Optional[str] = None
+    verificado: bool = False
+    licencia_subida: bool = False
+    revision_tecnica_subida: bool = False
+    soap_subido: bool = False
+
+
+class AdminUsuarioOut(BaseModel):
+    """Ficha completa de un usuario tal como la ve el administrador: sus
+    datos, roles y configuración. Nunca incluye contraseña ni token."""
+    id: int
+    rut: str
+    nombre: str
+    telefono: str
+    email: str
+    foto_url: Optional[str] = None
+    es_conductor: bool
+    es_pasajero: bool
+    es_admin: bool
+    genero: Optional[str] = None
+    modo_solo_mujeres: bool
+    acepta_terminos: bool
+    fecha_aceptacion_terminos: Optional[datetime] = None
+    fecha_registro: datetime
+    calificacion_promedio: Optional[float] = None
+    total_calificaciones: int
+    vehiculo: Optional[AdminVehiculoOut] = None
+
+
+class AdminRutaOut(BaseModel):
+    """Ficha de una ruta para el panel admin (sin la geometría completa, que
+    no aporta a la supervisión y es pesada)."""
+    id: int
+    conductor_id: int
+    conductor_nombre: str
+    origen_comuna: Optional[str] = None
+    origen_direccion: str
+    destino_comuna: Optional[str] = None
+    destino_direccion: str
+    hora_salida: str
+    dias_recurrencia: List[str]
+    cupos_totales: int
+    cupos_disponibles: int
+    precio_sugerido: int
+    modo_solo_mujeres: bool
+    activa: bool
+    en_curso: bool
+    fecha_creacion: datetime
+
+
+class AdminResumenOut(BaseModel):
+    """Contadores generales del sistema para la portada del panel."""
+    total_usuarios: int
+    total_conductores: int
+    total_pasajeros: int
+    total_admins: int
+    total_rutas: int
+    rutas_activas: int
+    rutas_en_curso: int
+    solicitudes_pendientes: int
+    solicitudes_aceptadas: int
+    solicitudes_rechazadas: int

@@ -45,6 +45,14 @@ class User(SQLModel, table=True):
     es_conductor: bool = Field(default=False)
     es_pasajero: bool = Field(default=False)
 
+    # Administrador de la plataforma (el dueño). No se pide en el registro:
+    # se asigna manualmente con el script crear_admin.py. Da acceso al panel
+    # de supervisión (solo lectura) de todos los usuarios y rutas.
+    # TODO PRODUCCIÓN: el rol admin debería asignarse fuera de la app y
+    # registrar en un log de auditoría cada consulta a datos de terceros
+    # (trazabilidad exigida por la Ley 21.719).
+    es_admin: bool = Field(default=False)
+
     # PRIVACIDAD: género es un dato sensible. Es opcional y solo se pide
     # porque habilita la función voluntaria "modo solo mujeres". Si el
     # usuario no la activa, no es necesario entregarlo.
@@ -121,6 +129,11 @@ class Route(SQLModel, table=True):
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     conductor_id: int = Field(foreign_key="user.id", index=True)
+
+    # Apodo/nombre corto que el conductor le pone a la ruta (ej. "Turno
+    # mañana", "Vuelta del trabajo") para reconocerla entre varias. Opcional;
+    # si no hay, la app muestra las comunas origen→destino.
+    apodo: Optional[str] = None
 
     # PRIVACIDAD (dato sensible - geolocalización): coordenadas de origen.
     # Se recolectan solo para poder trazar la ruta y mostrarla a pasajeros
@@ -202,6 +215,16 @@ class Solicitud(SQLModel, table=True):
 
     estado: str = Field(default="pendiente", index=True)  # pendiente | aceptada | rechazada
 
+    # Motivo que el conductor elige (respuesta rápida predefinida o texto
+    # libre) al rechazar la solicitud. Se le muestra al pasajero para que
+    # sepa por qué no fue aceptado. Null mientras no haya rechazo.
+    motivo_rechazo: Optional[str] = None
+
+    # Se marca True cuando el conductor finaliza el viaje de esta ruta. Habilita
+    # la evaluación mutua (Módulo 7): recién terminado el viaje, conductor y
+    # pasajero pueden calificarse.
+    viaje_finalizado: bool = Field(default=False)
+
     fecha_solicitud: datetime = Field(default_factory=datetime.utcnow)
     fecha_respuesta: Optional[datetime] = None
 
@@ -229,3 +252,59 @@ class Mensaje(SQLModel, table=True):
     texto: str
 
     fecha_envio: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Notificacion(SQLModel, table=True):
+    """
+    Aviso operativo para un usuario (Módulo de notificaciones).
+
+    Guarda los avisos de EVENTO ya ocurridos (ej. "el viaje inició"), que
+    son los que un futuro push al celular entregaría. Los RECORDATORIOS
+    previos (faltan 30/10/5 min para salir) NO se guardan acá: se calculan
+    al vuelo según la hora de salida de la ruta (ver routes/notificaciones.py),
+    porque dependen del reloj y de que el viaje no haya partido todavía.
+
+    TODO PRODUCCIÓN: el envío push real (a la app móvil / web push vía FCM o
+    APNs) todavía no existe — hoy estos avisos se muestran dentro de la app.
+    Cuando exista la app, un worker programado dispara los recordatorios en
+    las marcas 30/10/5 min y entrega tanto estos como los de evento por push.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # PRIVACIDAD: destinatario del aviso. Se usa solo para entregarle
+    # información operativa de un viaje en el que participa.
+    user_id: int = Field(foreign_key="user.id", index=True)
+
+    tipo: str  # "viaje_iniciado" | "recordatorio"
+    titulo: str
+    mensaje: str
+
+    ruta_id: Optional[int] = Field(default=None, foreign_key="route.id")
+    solicitud_id: Optional[int] = Field(default=None, foreign_key="solicitud.id")
+
+    leida: bool = Field(default=False)
+    fecha_creacion: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Calificacion(SQLModel, table=True):
+    """
+    Evaluación mutua post-viaje (Módulo 7). Cuelga de una `Solicitud` (la
+    unidad que une a un conductor con un pasajero en un viaje). Cada persona
+    califica UNA vez a la otra por esa solicitud: hay como máximo dos
+    calificaciones por solicitud (la del conductor al pasajero y viceversa).
+
+    Al guardar una calificación se recalcula el promedio del evaluado
+    (User.calificacion_promedio / total_calificaciones).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    solicitud_id: int = Field(foreign_key="solicitud.id", index=True)
+    autor_id: int = Field(foreign_key="user.id", index=True)      # quién califica
+    evaluado_id: int = Field(foreign_key="user.id", index=True)   # a quién califican
+
+    estrellas: int  # 1 a 5
+
+    # PRIVACIDAD: comentario opcional sobre la experiencia del viaje. Se
+    # recolecta solo para la reputación mutua dentro de la plataforma.
+    comentario: Optional[str] = None
+
+    fecha: datetime = Field(default_factory=datetime.utcnow)

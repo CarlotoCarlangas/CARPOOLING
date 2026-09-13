@@ -11,11 +11,14 @@ from sqlmodel import Session, select
 
 from database import get_session
 from deps import get_current_user
-from models import Route, Solicitud, User
+from models import Calificacion, Route, Solicitud, User
 from routes.routes import COMISION_PASAJERO
 from schemas import (
     ConductorResumen,
+    EvaluacionCreate,
+    EvaluacionEstado,
     PasajeroResumen,
+    RechazoRequest,
     RutaResumen,
     SolicitudCreate,
     SolicitudOut,
@@ -63,6 +66,8 @@ def _a_solicitud_out(solicitud: Solicitud, ruta: Route, conductor: User, pasajer
         embarque_lng=solicitud.embarque_lng,
         embarque_direccion=solicitud.embarque_direccion,
         estado=solicitud.estado,
+        motivo_rechazo=solicitud.motivo_rechazo,
+        viaje_finalizado=solicitud.viaje_finalizado,
         fecha_solicitud=solicitud.fecha_solicitud,
     )
 
@@ -134,6 +139,8 @@ def mis_solicitudes(
                 ruta=_a_ruta_resumen(ruta, conductor),
                 embarque_direccion=s.embarque_direccion,
                 estado=s.estado,
+                motivo_rechazo=s.motivo_rechazo,
+                viaje_finalizado=s.viaje_finalizado,
                 fecha_solicitud=s.fecha_solicitud,
             )
         )
@@ -191,7 +198,13 @@ def solicitudes_de_ruta(
     return resultado
 
 
-def _responder_solicitud(solicitud_id: int, nuevo_estado: str, usuario_actual: User, session: Session) -> tuple[Solicitud, Route]:
+def _responder_solicitud(
+    solicitud_id: int,
+    nuevo_estado: str,
+    usuario_actual: User,
+    session: Session,
+    motivo: str | None = None,
+) -> tuple[Solicitud, Route]:
     solicitud = session.get(Solicitud, solicitud_id)
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
@@ -210,6 +223,10 @@ def _responder_solicitud(solicitud_id: int, nuevo_estado: str, usuario_actual: U
         session.add(ruta)
 
     solicitud.estado = nuevo_estado
+    if nuevo_estado == "rechazada":
+        # Se guarda el motivo (respuesta rápida o texto libre) para mostrárselo
+        # al pasajero. Se recorta por si viene un texto libre muy largo.
+        solicitud.motivo_rechazo = (motivo or "").strip()[:300] or None
     solicitud.fecha_respuesta = datetime.utcnow()
     session.add(solicitud)
     session.commit()
@@ -232,10 +249,13 @@ def aceptar_solicitud(
 @router.put("/{solicitud_id}/rechazar", response_model=SolicitudOut)
 def rechazar_solicitud(
     solicitud_id: int,
+    datos: RechazoRequest = RechazoRequest(),
     usuario_actual: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    solicitud, ruta = _responder_solicitud(solicitud_id, "rechazada", usuario_actual, session)
+    solicitud, ruta = _responder_solicitud(
+        solicitud_id, "rechazada", usuario_actual, session, motivo=datos.motivo
+    )
     pasajero = session.get(User, solicitud.pasajero_id)
     return _a_solicitud_out(solicitud, ruta, usuario_actual, pasajero)
 
@@ -267,4 +287,109 @@ def viaje_en_curso(
         embarque_lat=solicitud.embarque_lat,
         embarque_lng=solicitud.embarque_lng,
         embarque_direccion=solicitud.embarque_direccion,
+    )
+
+
+# ---------- Evaluación mutua (Módulo 7) ----------
+
+def _partes_de_solicitud(solicitud: Solicitud, usuario: User, session: Session):
+    """Devuelve (ruta, conductor, pasajero, es_conductor). Verifica que el
+    usuario sea parte de esta solicitud (conductor o pasajero)."""
+    ruta = session.get(Route, solicitud.ruta_id)
+    if not ruta:
+        raise HTTPException(status_code=404, detail="Ruta no encontrada")
+    conductor = session.get(User, ruta.conductor_id)
+    pasajero = session.get(User, solicitud.pasajero_id)
+    if usuario.id == conductor.id:
+        return ruta, conductor, pasajero, True
+    if usuario.id == pasajero.id:
+        return ruta, conductor, pasajero, False
+    raise HTTPException(status_code=403, detail="No participaste en este viaje")
+
+
+@router.get("/{solicitud_id}/evaluacion", response_model=EvaluacionEstado)
+def estado_evaluacion(
+    solicitud_id: int,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    solicitud = session.get(Solicitud, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    _, conductor, pasajero, es_conductor = _partes_de_solicitud(solicitud, usuario_actual, session)
+    otra = pasajero if es_conductor else conductor
+
+    mia = session.exec(
+        select(Calificacion).where(
+            Calificacion.solicitud_id == solicitud_id,
+            Calificacion.autor_id == usuario_actual.id,
+        )
+    ).first()
+
+    return EvaluacionEstado(
+        viaje_finalizado=solicitud.viaje_finalizado,
+        ya_evaluado=mia is not None,
+        otra_persona_nombre=otra.nombre,
+        otra_persona_foto=otra.foto_url,
+        estrellas_previas=mia.estrellas if mia else None,
+        comentario_previo=mia.comentario if mia else None,
+    )
+
+
+@router.post("/{solicitud_id}/evaluar", response_model=EvaluacionEstado, status_code=201)
+def evaluar_viaje(
+    solicitud_id: int,
+    datos: EvaluacionCreate,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Conductor y pasajero se califican mutuamente, una vez, recién
+    terminado el viaje (solicitud aceptada y viaje_finalizado)."""
+    solicitud = session.get(Solicitud, solicitud_id)
+    if not solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
+    ruta, conductor, pasajero, es_conductor = _partes_de_solicitud(solicitud, usuario_actual, session)
+
+    if solicitud.estado != "aceptada" or not solicitud.viaje_finalizado:
+        raise HTTPException(status_code=400, detail="Solo puedes evaluar un viaje ya realizado")
+
+    evaluado = pasajero if es_conductor else conductor
+
+    ya = session.exec(
+        select(Calificacion).where(
+            Calificacion.solicitud_id == solicitud_id,
+            Calificacion.autor_id == usuario_actual.id,
+        )
+    ).first()
+    if ya:
+        raise HTTPException(status_code=400, detail="Ya evaluaste este viaje")
+
+    comentario = (datos.comentario or "").strip()[:500] or None
+    session.add(Calificacion(
+        solicitud_id=solicitud_id,
+        autor_id=usuario_actual.id,
+        evaluado_id=evaluado.id,
+        estrellas=datos.estrellas,
+        comentario=comentario,
+    ))
+
+    # Recalcular el promedio del evaluado.
+    total_anterior = evaluado.total_calificaciones or 0
+    prom_anterior = evaluado.calificacion_promedio or 0
+    nuevo_total = total_anterior + 1
+    evaluado.calificacion_promedio = round(
+        (prom_anterior * total_anterior + datos.estrellas) / nuevo_total, 2
+    )
+    evaluado.total_calificaciones = nuevo_total
+    session.add(evaluado)
+    session.commit()
+
+    return EvaluacionEstado(
+        viaje_finalizado=True,
+        ya_evaluado=True,
+        otra_persona_nombre=evaluado.nombre,
+        otra_persona_foto=evaluado.foto_url,
+        estrellas_previas=datos.estrellas,
+        comentario_previo=comentario,
     )

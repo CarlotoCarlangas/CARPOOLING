@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
+import { agregarCapaBase } from "../services/basemap";
 import "../services/leafletIconFix";
 
 function distanciaM(lat1, lng1, lat2, lng2) {
@@ -89,10 +90,7 @@ export default function MapaBusqueda({ rutas, lado, foco, radioM, resaltadaId, o
     // se hace zoom con los dedos (pinch) o la rueda del mouse, no con
     // controles flotantes que competirían con el resto de la interfaz.
     const mapa = L.map(contenedorRef.current, { zoomControl: false }).setView([-33.53, -70.8], 11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; colaboradores de OpenStreetMap",
-      maxZoom: 19,
-    }).addTo(mapa);
+    agregarCapaBase(mapa);
     // Clic directo en el mapa (no en un pin): usado en los pasos de
     // elegir origen/destino para marcar el punto ahí mismo, sin necesitar
     // un segundo mapa embebido aparte.

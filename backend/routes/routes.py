@@ -11,8 +11,8 @@ from sqlmodel import Session, select
 
 from database import get_session
 from deps import get_current_user
-from models import Route, User, VehiculoDocumento
-from schemas import ConductorResumen, PuntoRuta, RouteCreate, RouteOut, UbicacionUpdate
+from models import Notificacion, Route, Solicitud, User, VehiculoDocumento
+from schemas import ConductorResumen, PuntoRuta, RouteCreate, RouteEditRequest, RouteOut, UbicacionUpdate
 
 router = APIRouter(prefix="/routes", tags=["routes"])
 
@@ -22,6 +22,7 @@ COMISION_PASAJERO = 0.10  # el pasajero paga 10% extra sobre el precio sugerido
 def _a_route_out(ruta: Route, conductor: User) -> RouteOut:
     return RouteOut(
         id=ruta.id,
+        apodo=ruta.apodo,
         conductor=ConductorResumen(
             id=conductor.id,
             nombre=conductor.nombre,
@@ -277,6 +278,46 @@ def _ruta_del_conductor(ruta_id: int, usuario_actual: User, session: Session) ->
     return ruta
 
 
+@router.put("/{ruta_id}", response_model=RouteOut)
+def editar_ruta(
+    ruta_id: int,
+    datos: RouteEditRequest,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Edita una ruta ya publicada (solo el conductor dueño). Origen y destino
+    NO se tocan acá — quedan fijos. Se actualiza solo lo que venga en el body."""
+    ruta = _ruta_del_conductor(ruta_id, usuario_actual, session)
+    cambios = datos.model_dump(exclude_unset=True)
+
+    if "apodo" in cambios:
+        ruta.apodo = (cambios["apodo"] or "").strip() or None
+    if "precio_sugerido" in cambios:
+        ruta.precio_sugerido = cambios["precio_sugerido"]
+    if "hora_salida" in cambios:
+        ruta.hora_salida = cambios["hora_salida"]
+    if "dias_recurrencia" in cambios:
+        ruta.dias_recurrencia = cambios["dias_recurrencia"]
+    if "modo_solo_mujeres" in cambios:
+        ruta.modo_solo_mujeres = cambios["modo_solo_mujeres"]
+    if "activa" in cambios:
+        ruta.activa = cambios["activa"]
+    if "paradas" in cambios:
+        ruta.paradas = [p.model_dump() for p in datos.paradas]
+    if "cupos_totales" in cambios:
+        # cupos_disponibles = nuevo total - los que ya fueron aceptados
+        aceptadas = len(session.exec(
+            select(Solicitud).where(Solicitud.ruta_id == ruta.id, Solicitud.estado == "aceptada")
+        ).all())
+        ruta.cupos_totales = cambios["cupos_totales"]
+        ruta.cupos_disponibles = max(0, cambios["cupos_totales"] - aceptadas)
+
+    session.add(ruta)
+    session.commit()
+    session.refresh(ruta)
+    return _a_route_out(ruta, usuario_actual)
+
+
 @router.put("/{ruta_id}/iniciar", response_model=RouteOut)
 def iniciar_viaje(
     ruta_id: int,
@@ -291,6 +332,28 @@ def iniciar_viaje(
     ruta.ubicacion_lng = None
     ruta.ubicacion_actualizada = None
     session.add(ruta)
+
+    # Avisar a cada pasajero con cupo aceptado que el viaje ya partió, para
+    # que se dirija a su punto de subida lo antes posible (Módulo avisos, #2).
+    # TODO PRODUCCIÓN: cuando exista la app móvil, esto además se envía por
+    # push; hoy el pasajero lo ve en su centro de avisos dentro de la app.
+    aceptadas = session.exec(
+        select(Solicitud).where(
+            Solicitud.ruta_id == ruta.id,
+            Solicitud.estado == "aceptada",
+        )
+    ).all()
+    for sol in aceptadas:
+        session.add(Notificacion(
+            user_id=sol.pasajero_id,
+            tipo="viaje_iniciado",
+            titulo="¡Tu viaje ya partió!",
+            mensaje=f"{usuario_actual.nombre} inició el viaje. Dirígete a tu punto de subida "
+                    f"({sol.embarque_direccion}) lo antes posible.",
+            ruta_id=ruta.id,
+            solicitud_id=sol.id,
+        ))
+
     session.commit()
     session.refresh(ruta)
     return _a_route_out(ruta, usuario_actual)
@@ -327,6 +390,20 @@ def finalizar_viaje(
     ruta.ubicacion_lng = None
     ruta.ubicacion_actualizada = None
     session.add(ruta)
+
+    # Al terminar, habilitar la evaluación mutua (Módulo 7): las solicitudes
+    # aceptadas de esta ruta quedan "viaje_finalizado" para que conductor y
+    # pasajero puedan calificarse.
+    aceptadas = session.exec(
+        select(Solicitud).where(
+            Solicitud.ruta_id == ruta.id,
+            Solicitud.estado == "aceptada",
+        )
+    ).all()
+    for sol in aceptadas:
+        sol.viaje_finalizado = True
+        session.add(sol)
+
     session.commit()
     session.refresh(ruta)
     return _a_route_out(ruta, usuario_actual)

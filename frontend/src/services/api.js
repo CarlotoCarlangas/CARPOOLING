@@ -90,6 +90,7 @@ export const api = {
   crearRuta: (datos, token) => request("/routes", { method: "POST", body: datos, token }),
   detalleRuta: (id) => request(`/routes/${id}`),
   rutasDeConductor: (conductorId) => request(`/routes?conductor_id=${conductorId}`),
+  editarRuta: (id, datos, token) => request(`/routes/${id}`, { method: "PUT", body: datos, token }),
 
   comunasDisponibles: () => request("/routes/comunas"),
   buscarRutas: (params = {}) => {
@@ -103,19 +104,37 @@ export const api = {
   crearSolicitud: (datos, token) => request("/requests", { method: "POST", body: datos, token }),
   misSolicitudes: (token) => request("/requests/mias", { token }),
   solicitudesRecibidas: (token) => request("/requests/recibidas", { token }),
+  solicitudesDeRuta: (rutaId, token) => request(`/requests/ruta/${rutaId}`, { token }),
   aceptarSolicitud: (id, token) => request(`/requests/${id}/aceptar`, { method: "PUT", token }),
-  rechazarSolicitud: (id, token) => request(`/requests/${id}/rechazar`, { method: "PUT", token }),
+  rechazarSolicitud: (id, motivo, token) =>
+    request(`/requests/${id}/rechazar`, { method: "PUT", body: { motivo }, token }),
 
   datosConversacion: (solicitudId, token) => request(`/requests/${solicitudId}/chat`, { token }),
   mensajesDeSolicitud: (solicitudId, token) => request(`/requests/${solicitudId}/mensajes`, { token }),
   enviarMensaje: (solicitudId, texto, token) =>
     request(`/requests/${solicitudId}/mensajes`, { method: "POST", body: { texto }, token }),
 
+  estadoEvaluacion: (solicitudId, token) => request(`/requests/${solicitudId}/evaluacion`, { token }),
+  evaluarViaje: (solicitudId, datos, token) =>
+    request(`/requests/${solicitudId}/evaluar`, { method: "POST", body: datos, token }),
+
   iniciarViaje: (rutaId, token) => request(`/routes/${rutaId}/iniciar`, { method: "PUT", token }),
   finalizarViaje: (rutaId, token) => request(`/routes/${rutaId}/finalizar`, { method: "PUT", token }),
   actualizarUbicacion: (rutaId, lat, lng, token) =>
     request(`/routes/${rutaId}/ubicacion`, { method: "PUT", body: { lat, lng }, token }),
   viajeDeSolicitud: (solicitudId, token) => request(`/requests/${solicitudId}/viaje`, { token }),
+
+  // Avisos / notificaciones del usuario (recordatorios de salida + eventos
+  // como "viaje iniciado"). El push real al celular queda pendiente para la
+  // app móvil; hoy el frontend consulta este endpoint.
+  notificaciones: (token) => request("/notificaciones", { token }),
+  marcarAvisoLeido: (id, token) => request(`/notificaciones/${id}/leida`, { method: "PUT", token }),
+
+  // Panel de administración (solo el dueño de la plataforma; el backend
+  // valida es_admin y responde 403 a cualquier otro).
+  adminResumen: (token) => request("/admin/resumen", { token }),
+  adminUsuarios: (token) => request("/admin/usuarios", { token }),
+  adminRutas: (token) => request("/admin/rutas", { token }),
 };
 
 export { API_URL, ApiError };

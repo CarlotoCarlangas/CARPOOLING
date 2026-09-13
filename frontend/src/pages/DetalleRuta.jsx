@@ -154,7 +154,7 @@ export default function DetalleRuta() {
           </>
         ) : solicitudEnviada ? (
           <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-3 py-2.5 text-center">
-            Solicitud enviada — pendiente de que el conductor la acepte.{" "}
+            ✅ Pedido de cupo enviado al conductor. Queda pendiente de que lo acepte.{" "}
             <Link to="/mis-reservas" className="underline font-semibold">Ver mis reservas</Link>
           </div>
         ) : !estaAutenticado ? (
@@ -174,14 +174,17 @@ export default function DetalleRuta() {
             <button
               onClick={reservar}
               disabled={enviando || ruta.cupos_disponibles <= 0}
-              className="w-full mt-4 bg-taco text-white py-2 rounded-lg font-semibold disabled:opacity-40"
+              className="w-full mt-4 bg-taco text-white py-3 rounded-xl font-bold text-base shadow-sm disabled:opacity-40"
             >
               {ruta.cupos_disponibles <= 0
                 ? "Sin cupos disponibles"
                 : enviando
                 ? "Enviando..."
-                : "Reservar cupo"}
+                : "🎫 Pedir cupo en esta parada"}
             </button>
+            <p className="text-[11px] text-gray-500 mt-2 text-center">
+              Le llegará tu pedido al conductor, que lo acepta o rechaza.
+            </p>
             {errorReserva && <p className="text-red-600 text-sm mt-2">{errorReserva}</p>}
           </>
         )}

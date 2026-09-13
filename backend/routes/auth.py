@@ -19,7 +19,7 @@ from schemas import (
     VehiculoDocumentoOut,
 )
 from storage import guardar_archivo
-from utils import generar_token, hash_password, verificar_password
+from utils import formatear_rut, generar_token, hash_password, verificar_password
 
 router = APIRouter(tags=["auth"])
 
@@ -68,6 +68,20 @@ def iniciar_sesion(datos: LoginRequest, session: Session = Depends(get_session))
     usuario = session.exec(
         select(User).where((User.email == identificador) | (User.rut == identificador))
     ).first()
+
+    # Si no calzó de forma exacta y lo escrito parece un RUT (con o sin
+    # puntos/guión), reintentar normalizándolo al formato en que se guarda
+    # (NNNNNNNN-DV). Así el usuario puede entrar con "189601719",
+    # "18.960.171-9" o "18960171-9" indistintamente. Solo agrega calces,
+    # nunca quita — el login por email sigue igual.
+    if not usuario:
+        try:
+            rut_normalizado = formatear_rut(identificador)
+            usuario = session.exec(
+                select(User).where(User.rut == rut_normalizado)
+            ).first()
+        except Exception:
+            usuario = None
 
     if not usuario or not verificar_password(datos.password, usuario.password_hash):
         raise HTTPException(status_code=401, detail="RUT/email o contraseña incorrectos")

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "../services/leafletIconFix";
+import { agregarCapaBase } from "../services/basemap";
 
 /**
  * Mapa de solo lectura que dibuja una ruta ya calculada (geometría +
@@ -12,12 +13,7 @@ export default function MapaVistaRuta({ ruta, alturaClase = "h-[300px]" }) {
 
   useEffect(() => {
     const mapa = L.map(contenedorRef.current, { scrollWheelZoom: false });
-    // Ver nota en MapaSeleccionRuta.jsx: CARTO Voyager empezó a exigir API
-    // key incluso gratis, así que se volvió al tile estándar de OSM.
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; colaboradores de OpenStreetMap",
-      maxZoom: 19,
-    }).addTo(mapa);
+    agregarCapaBase(mapa);
     mapaRef.current = mapa;
 
     return () => mapa.remove();

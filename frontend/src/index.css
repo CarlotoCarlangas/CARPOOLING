@@ -2,12 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Color de marca según el MODO. Por defecto azul (pasajero). El contenedor
+   raíz lleva data-modo="chofer" | "pasajero" y con eso toda la interfaz que
+   usa bg-taco/text-taco/marca cambia de color sin tocar la disposición. */
+:root {
+  --brand: 37 99 235;       /* azul  #2563EB — Pasajero */
+  --brand-dark: 29 78 216;  /*        #1D4ED8 */
+  --brand-deep: 30 58 138;  /*        #1E3A8A */
+}
+[data-modo="chofer"] {
+  --brand: 5 150 105;       /* verde #059669 — Chofer */
+  --brand-dark: 4 120 87;   /*        #047857 */
+  --brand-deep: 6 78 59;    /*        #064E3B */
+}
+
 html, body, #root {
   height: 100%;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background-color: #f7f6f4;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: #f8fafc; /* slate-50 */
+  color: #0f172a;            /* slate-900 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent; /* sin flash gris al tocar en móvil */
 }
+
+/* Los <select>, inputs y botones heredan la tipografía */
+input, select, textarea, button {
+  font-family: inherit;
+}
+
+/* Scrollbar más discreta (se ve más "app" en escritorio) */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }

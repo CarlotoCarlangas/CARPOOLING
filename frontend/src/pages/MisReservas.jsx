@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import BotonEvaluar from "../components/BotonEvaluar";
 
 const ESTADO_ESTILO = {
   pendiente: "bg-amber-50 text-amber-700 border-amber-200",
@@ -66,21 +67,38 @@ export default function MisReservas() {
                 Conductor: {s.ruta.conductor.nombre} · Subes en: {s.embarque_direccion}
               </p>
             </Link>
-            {s.estado === "aceptada" && (
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Link
-                  to={`/viaje/${s.id}`}
-                  className="text-center bg-green-600 text-white rounded-lg py-2 text-sm font-semibold"
-                >
-                  📍 Ver en vivo
-                </Link>
-                <Link
-                  to={`/chat/${s.id}`}
-                  className="text-center bg-white border border-taco text-taco rounded-lg py-2 text-sm font-semibold"
-                >
-                  💬 Chat
+
+            {s.estado === "rechazada" && (
+              <div className="mt-3 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5 text-sm">
+                <p className="text-red-700 font-semibold">El conductor no pudo darte el cupo</p>
+                <p className="text-gray-600 mt-0.5">
+                  {s.motivo_rechazo || "No dejó un motivo."}
+                </p>
+                <Link to="/buscar" className="text-taco underline text-xs font-semibold mt-1 inline-block">
+                  Buscar otro viaje
                 </Link>
               </div>
+            )}
+
+            {s.estado === "aceptada" && (
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Link
+                    to={`/viaje/${s.id}`}
+                    className="text-center bg-green-600 text-white rounded-lg py-2 text-sm font-semibold"
+                  >
+                    📍 Ver en vivo
+                  </Link>
+                  <Link
+                    to={`/chat/${s.id}`}
+                    className="text-center bg-white border border-taco text-taco rounded-lg py-2 text-sm font-semibold"
+                  >
+                    💬 Chat
+                  </Link>
+                </div>
+                {/* Evaluación al conductor — aparece recién cuando el viaje terminó. */}
+                <BotonEvaluar solicitudId={s.id} finalizado={s.viaje_finalizado} />
+              </>
             )}
           </div>
         ))}

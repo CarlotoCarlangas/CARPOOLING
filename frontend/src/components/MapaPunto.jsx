@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
+import { agregarCapaBase } from "../services/basemap";
 import "../services/leafletIconFix";
 
 const CENTRO_RM = [-33.53, -70.8];
@@ -20,10 +21,7 @@ export default function MapaPunto({ onElegir }) {
 
   useEffect(() => {
     const mapa = L.map(contenedorRef.current).setView(CENTRO_RM, 10);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; colaboradores de OpenStreetMap",
-      maxZoom: 19,
-    }).addTo(mapa);
+    agregarCapaBase(mapa);
 
     mapa.on("click", (e) => {
       const { lat, lng } = e.latlng;

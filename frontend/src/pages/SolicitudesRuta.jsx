@@ -1,46 +1,47 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import ModalRechazo from "../components/ModalRechazo";
+import BotonEvaluar from "../components/BotonEvaluar";
 
 const ESTADO_ESTILO = {
   pendiente: "bg-amber-50 text-amber-700 border-amber-200",
   aceptada: "bg-green-50 text-green-700 border-green-200",
   rechazada: "bg-red-50 text-red-700 border-red-200",
 };
+const ESTADO_LABEL = { pendiente: "Pendiente", aceptada: "Aceptada", rechazada: "Rechazada" };
 
-const ESTADO_LABEL = {
-  pendiente: "Pendiente",
-  aceptada: "Aceptada",
-  rechazada: "Rechazada",
-};
-
-export default function Solicitudes() {
+/** Solicitudes de UN viaje puntual del conductor (se llega desde Mis viajes). */
+export default function SolicitudesRuta() {
+  const { id } = useParams();
   const { token } = useAuth();
+  const [ruta, setRuta] = useState(null);
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [respondiendo, setRespondiendo] = useState(null);
-  const [rechazando, setRechazando] = useState(null); // solicitud a la que se le abrió el modal de motivo
+  const [rechazando, setRechazando] = useState(null);
 
   const cargar = () => {
     setCargando(true);
-    api
-      .solicitudesRecibidas(token)
-      .then(setSolicitudes)
+    Promise.all([api.detalleRuta(id), api.solicitudesDeRuta(id, token)])
+      .then(([r, sols]) => {
+        setRuta(r);
+        setSolicitudes(sols);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
   };
 
-  useEffect(cargar, [token]);
+  useEffect(cargar, [id, token]);
 
-  const aceptar = async (id) => {
-    setRespondiendo(id);
+  const aceptar = async (sid) => {
+    setRespondiendo(sid);
     setError("");
     try {
-      const actualizada = await api.aceptarSolicitud(id, token);
-      setSolicitudes((prev) => prev.map((s) => (s.id === id ? actualizada : s)));
+      const act = await api.aceptarSolicitud(sid, token);
+      setSolicitudes((prev) => prev.map((s) => (s.id === sid ? act : s)));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -50,12 +51,11 @@ export default function Solicitudes() {
 
   const confirmarRechazo = async (motivo) => {
     if (!rechazando) return;
-    const id = rechazando.id;
-    setRespondiendo(id);
-    setError("");
+    const sid = rechazando.id;
+    setRespondiendo(sid);
     try {
-      const actualizada = await api.rechazarSolicitud(id, motivo, token);
-      setSolicitudes((prev) => prev.map((s) => (s.id === id ? actualizada : s)));
+      const act = await api.rechazarSolicitud(sid, motivo, token);
+      setSolicitudes((prev) => prev.map((s) => (s.id === sid ? act : s)));
       setRechazando(null);
     } catch (e) {
       setError(e.message);
@@ -66,48 +66,40 @@ export default function Solicitudes() {
 
   return (
     <div className="max-w-2xl mx-auto p-6 my-6">
-      <h1 className="text-2xl font-bold mb-1">Solicitudes recibidas</h1>
-      <p className="text-sm text-gray-600 mb-4">
-        Pasajeros que quieren un cupo en tus viajes publicados.
-      </p>
+      <Link to="/mis-viajes" className="text-sm text-taco underline">← Volver a mis viajes</Link>
+      <h1 className="text-2xl font-bold mt-2 mb-1">Solicitudes del viaje</h1>
+      {ruta && (
+        <p className="text-sm text-gray-500 mb-4">
+          {ruta.apodo ? `${ruta.apodo} · ` : ""}
+          {ruta.origen_comuna || ruta.origen_direccion} → {ruta.destino_comuna || ruta.destino_direccion} · 🕐 {ruta.hora_salida}
+        </p>
+      )}
 
       {cargando && <p className="text-sm text-gray-500">Cargando...</p>}
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
       {!cargando && solicitudes.length === 0 && (
-        <p className="text-gray-500 text-sm">Todavía no has recibido ninguna solicitud.</p>
+        <p className="text-gray-500 text-sm">Este viaje todavía no tiene solicitudes.</p>
       )}
 
       <div className="space-y-3">
         {solicitudes.map((s) => (
-          <div key={s.id} className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <Link to={`/rutas/${s.ruta.id}`} className="font-semibold hover:underline truncate block">
-                  {s.ruta.origen_direccion} → {s.ruta.destino_direccion}
-                </Link>
-                <p className="text-sm text-gray-500">🕐 {s.ruta.hora_salida}</p>
-              </div>
-              <span
-                className={`flex-shrink-0 text-xs font-semibold border rounded-full px-2.5 py-1 ${ESTADO_ESTILO[s.estado]}`}
-              >
-                {ESTADO_LABEL[s.estado] || s.estado}
-              </span>
-            </div>
-
-            <div className="mt-3 flex items-center gap-3 bg-gray-50 rounded-lg p-3">
-              <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 text-sm">
-                🧑
-              </div>
+          <div key={s.id} className="bg-white rounded-2xl shadow-card p-4 border border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">🧑</div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold truncate">{s.pasajero.nombre}</p>
                 <p className="text-xs text-gray-500 truncate">Sube en: {s.embarque_direccion}</p>
               </div>
-              {s.estado !== "pendiente" && (
-                <a href={`tel:${s.pasajero.telefono}`} className="text-xs text-taco-dark font-semibold whitespace-nowrap">
-                  {s.pasajero.telefono}
-                </a>
-              )}
+              <span className={`flex-shrink-0 text-xs font-semibold border rounded-full px-2.5 py-1 ${ESTADO_ESTILO[s.estado]}`}>
+                {ESTADO_LABEL[s.estado] || s.estado}
+              </span>
             </div>
+
+            {s.estado !== "pendiente" && (
+              <a href={`tel:${s.pasajero.telefono}`} className="text-xs text-taco-dark font-semibold mt-2 inline-block">
+                📞 {s.pasajero.telefono}
+              </a>
+            )}
 
             {s.estado === "pendiente" && (
               <div className="flex gap-2 mt-3">
@@ -135,12 +127,15 @@ export default function Solicitudes() {
             )}
 
             {s.estado === "aceptada" && (
-              <Link
-                to={`/chat/${s.id}`}
-                className="mt-3 block text-center bg-taco text-white rounded-lg py-2 text-sm font-semibold"
-              >
-                💬 Chat con {s.pasajero.nombre}
-              </Link>
+              <>
+                <Link
+                  to={`/chat/${s.id}`}
+                  className="mt-3 block text-center bg-taco text-white rounded-lg py-2 text-sm font-semibold"
+                >
+                  💬 Chat con {s.pasajero.nombre}
+                </Link>
+                <BotonEvaluar solicitudId={s.id} finalizado={s.viaje_finalizado} />
+              </>
             )}
           </div>
         ))}
