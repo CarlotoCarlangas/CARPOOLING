@@ -10,8 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from database import get_session
-from deps import get_current_user
+from deps import get_current_user, get_current_user_optional
 from models import Notificacion, Route, Solicitud, User, VehiculoDocumento
+from routes.bloqueos import conductores_que_me_bloquearon
 from schemas import ConductorResumen, PuntoRuta, RouteCreate, RouteEditRequest, RouteOut, UbicacionUpdate
 
 router = APIRouter(prefix="/routes", tags=["routes"])
@@ -216,6 +217,7 @@ def buscar_rutas(
     destino_lng: Optional[float] = None,
     destino_radio_m: Optional[float] = None,
     session: Session = Depends(get_session),
+    usuario: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Búsqueda para el pasajero (Módulo 3). Una ruta califica si tiene un
@@ -237,8 +239,14 @@ def buscar_rutas(
         select(Route).where(Route.activa == True, Route.cupos_disponibles > 0)  # noqa: E712
     ).all()
 
+    # Si hay pasajero logueado, ocultar las rutas de conductores que lo
+    # bloquearon (#8): no debe ver esos viajes como opción.
+    bloqueadores = conductores_que_me_bloquearon(session, usuario.id) if usuario else set()
+
     resultado = []
     for ruta in rutas:
+        if ruta.conductor_id in bloqueadores:
+            continue
         puntos = _puntos_ordenados(ruta)
 
         idx_origen = _primer_punto_que_coincide(

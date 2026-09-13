@@ -22,6 +22,7 @@ export default function SolicitudesRuta() {
   const [error, setError] = useState("");
   const [respondiendo, setRespondiendo] = useState(null);
   const [rechazando, setRechazando] = useState(null);
+  const [bloqueados, setBloqueados] = useState({}); // pasajero_id -> true
 
   const cargar = () => {
     setCargando(true);
@@ -35,6 +36,29 @@ export default function SolicitudesRuta() {
   };
 
   useEffect(cargar, [id, token]);
+
+  useEffect(() => {
+    api
+      .pasajerosBloqueados(token)
+      .then((lista) => {
+        const m = {};
+        (lista || []).forEach((b) => (m[b.pasajero_id] = true));
+        setBloqueados(m);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const bloquear = async (pasajeroId, nombre) => {
+    if (!window.confirm(`¿Bloquear a ${nombre}? No verá tus viajes ni podrá pedirte cupo. Puedes desbloquearlo después desde tu perfil.`)) {
+      return;
+    }
+    try {
+      await api.bloquearPasajero(pasajeroId, token);
+      setBloqueados((prev) => ({ ...prev, [pasajeroId]: true }));
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   const aceptar = async (sid) => {
     setRespondiendo(sid);
@@ -136,6 +160,17 @@ export default function SolicitudesRuta() {
                 </Link>
                 <BotonEvaluar solicitudId={s.id} finalizado={s.viaje_finalizado} />
               </>
+            )}
+
+            {bloqueados[s.pasajero.id] ? (
+              <p className="mt-3 text-xs text-red-600 font-semibold">🚫 Pasajero bloqueado (gestiónalo en tu perfil)</p>
+            ) : (
+              <button
+                onClick={() => bloquear(s.pasajero.id, s.pasajero.nombre)}
+                className="mt-3 text-xs text-gray-400 hover:text-red-600"
+              >
+                🚫 Bloquear a este pasajero
+              </button>
             )}
           </div>
         ))}

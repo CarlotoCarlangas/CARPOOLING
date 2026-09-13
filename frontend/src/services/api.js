@@ -93,16 +93,19 @@ export const api = {
   editarRuta: (id, datos, token) => request(`/routes/${id}`, { method: "PUT", body: datos, token }),
 
   comunasDisponibles: () => request("/routes/comunas"),
-  buscarRutas: (params = {}) => {
+  // token opcional: si va, el backend oculta rutas de conductores que
+  // bloquearon a este pasajero.
+  buscarRutas: (params = {}, token) => {
     const limpios = Object.fromEntries(
       Object.entries(params).filter(([, v]) => v !== null && v !== undefined && v !== "")
     );
     const query = new URLSearchParams(limpios).toString();
-    return request(`/routes/buscar${query ? `?${query}` : ""}`);
+    return request(`/routes/buscar${query ? `?${query}` : ""}`, { token });
   },
 
   crearSolicitud: (datos, token) => request("/requests", { method: "POST", body: datos, token }),
   misSolicitudes: (token) => request("/requests/mias", { token }),
+  rebookDisponibles: (token) => request("/requests/rebook", { token }),
   solicitudesRecibidas: (token) => request("/requests/recibidas", { token }),
   solicitudesDeRuta: (rutaId, token) => request(`/requests/ruta/${rutaId}`, { token }),
   aceptarSolicitud: (id, token) => request(`/requests/${id}/aceptar`, { method: "PUT", token }),
@@ -113,6 +116,12 @@ export const api = {
   mensajesDeSolicitud: (solicitudId, token) => request(`/requests/${solicitudId}/mensajes`, { token }),
   enviarMensaje: (solicitudId, texto, token) =>
     request(`/requests/${solicitudId}/mensajes`, { method: "POST", body: { texto }, token }),
+
+  bloquearPasajero: (pasajeroId, token) =>
+    request("/bloqueos", { method: "POST", body: { pasajero_id: pasajeroId }, token }),
+  desbloquearPasajero: (pasajeroId, token) =>
+    request(`/bloqueos/${pasajeroId}`, { method: "DELETE", token }),
+  pasajerosBloqueados: (token) => request("/bloqueos", { token }),
 
   estadoEvaluacion: (solicitudId, token) => request(`/requests/${solicitudId}/evaluacion`, { token }),
   evaluarViaje: (solicitudId, datos, token) =>

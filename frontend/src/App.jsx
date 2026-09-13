@@ -21,6 +21,7 @@ import Admin from "./pages/Admin";
 import MisViajes from "./pages/MisViajes";
 import EditarRuta from "./pages/EditarRuta";
 import SolicitudesRuta from "./pages/SolicitudesRuta";
+import Bloqueados from "./pages/Bloqueados";
 
 // El contenedor raíz lleva data-modo (chofer|pasajero): eso cambia la variable
 // de color de marca en index.css, así toda la interfaz se re-tiñe sin mover
@@ -103,6 +104,14 @@ function App() {
                   element={
                     <RutaProtegida>
                       <SolicitudesRuta />
+                    </RutaProtegida>
+                  }
+                />
+                <Route
+                  path="/bloqueados"
+                  element={
+                    <RutaProtegida>
+                      <Bloqueados />
                     </RutaProtegida>
                   }
                 />

@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from database import crear_tablas
 from routes.admin import router as admin_router
 from routes.auth import router as auth_router
+from routes.bloqueos import router as bloqueos_router
 from routes.mensajes import router as mensajes_router
 from routes.notificaciones import router as notificaciones_router
 from routes.requests import router as requests_router
@@ -44,6 +45,7 @@ app.include_router(requests_router, prefix="/api")
 app.include_router(mensajes_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(notificaciones_router, prefix="/api")
+app.include_router(bloqueos_router, prefix="/api")
 
 
 @app.on_event("startup")

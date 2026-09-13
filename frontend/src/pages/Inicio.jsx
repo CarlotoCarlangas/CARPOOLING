@@ -5,6 +5,7 @@ import { useViaje } from "../context/ViajeContext";
 import { useModo } from "../context/ModoContext";
 import { api } from "../services/api";
 import Avisos from "../components/Avisos";
+import RebookRapido from "../components/RebookRapido";
 
 // getDay(): 0 = domingo ... 6 = sábado. El navegador usa la hora local del
 // dispositivo, que para el usuario ES hora de Chile — no hace falta convertir.
@@ -340,6 +341,9 @@ export default function Inicio() {
               ))}
             </div>
           )}
+
+          {/* #7 · Volver a tomar un viaje ya tomado (se auto-oculta si no hay). */}
+          {modo === "pasajero" && <RebookRapido />}
 
           {/* La navegación general está en la barra inferior; acá solo el CTA
               central del modo pasajero (su acción principal: buscar viaje). */}

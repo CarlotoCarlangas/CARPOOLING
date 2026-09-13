@@ -195,6 +195,17 @@ export default function Perfil() {
 
       {mensaje && <p className="text-sm text-gray-700">{mensaje}</p>}
 
+      {/* Gestión de pasajeros bloqueados — para conductores. */}
+      {usuario.es_conductor && (
+        <Link
+          to="/bloqueados"
+          className="block bg-white border border-slate-200 rounded-2xl p-4 shadow-card"
+        >
+          <p className="font-semibold text-gray-800">🚫 Pasajeros bloqueados</p>
+          <p className="text-sm text-gray-500 mt-0.5">Ver y desbloquear pasajeros que vetaste.</p>
+        </Link>
+      )}
+
       {/* Acceso al panel de administración — solo para el dueño (es_admin). */}
       {usuario.es_admin && (
         <Link

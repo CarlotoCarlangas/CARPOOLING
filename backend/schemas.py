@@ -307,6 +307,30 @@ class EvaluacionEstado(BaseModel):
     comentario_previo: Optional[str] = None
 
 
+# ---------- Bloqueo de pasajeros (veto del conductor) ----------
+
+class BloqueoCreate(BaseModel):
+    pasajero_id: int
+
+
+class PasajeroBloqueadoOut(BaseModel):
+    pasajero_id: int
+    nombre: str
+    foto_url: Optional[str] = None
+    fecha: datetime
+
+
+# ---------- Volver a tomar un viaje (rebook) ----------
+
+class RebookOut(BaseModel):
+    """Un viaje que el pasajero ya tomó antes y que sigue disponible para
+    volver a pedirlo con un toque (mismo punto de subida)."""
+    ruta: RouteOut
+    embarque_lat: float
+    embarque_lng: float
+    embarque_direccion: str
+
+
 # ---------- Chat (Módulo 4) ----------
 
 class MensajeCreate(BaseModel):

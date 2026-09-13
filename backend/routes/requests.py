@@ -12,12 +12,14 @@ from sqlmodel import Session, select
 from database import get_session
 from deps import get_current_user
 from models import Calificacion, Route, Solicitud, User
-from routes.routes import COMISION_PASAJERO
+from routes.bloqueos import conductores_que_me_bloquearon, esta_bloqueado
+from routes.routes import COMISION_PASAJERO, _a_route_out
 from schemas import (
     ConductorResumen,
     EvaluacionCreate,
     EvaluacionEstado,
     PasajeroResumen,
+    RebookOut,
     RechazoRequest,
     RutaResumen,
     SolicitudCreate,
@@ -88,14 +90,23 @@ def crear_solicitud(
     if ruta.conductor_id == usuario_actual.id:
         raise HTTPException(status_code=400, detail="No puedes reservar un cupo en tu propia ruta")
 
+    # Veto: si el conductor bloqueó a este pasajero, no puede pedir cupo.
+    # Mensaje neutro a propósito (no se le informa del bloqueo).
+    if esta_bloqueado(session, ruta.conductor_id, usuario_actual.id):
+        raise HTTPException(status_code=403, detail="No puedes reservar en este viaje")
+
     if ruta.cupos_disponibles <= 0:
         raise HTTPException(status_code=400, detail="Este viaje ya no tiene cupos disponibles")
 
+    # Bloquea duplicados solo si hay una solicitud VIGENTE (pendiente, o
+    # aceptada aún no realizada). Un viaje ya finalizado NO bloquea: así el
+    # pasajero puede "volver a tomar" el mismo viaje otro día (rebook, #7).
     ya_existe = session.exec(
         select(Solicitud).where(
             Solicitud.ruta_id == ruta.id,
             Solicitud.pasajero_id == usuario_actual.id,
             Solicitud.estado.in_(["pendiente", "aceptada"]),
+            Solicitud.viaje_finalizado == False,  # noqa: E712
         )
     ).first()
     if ya_existe:
@@ -145,6 +156,60 @@ def mis_solicitudes(
             )
         )
     return resultado
+
+
+@router.get("/rebook", response_model=List[RebookOut])
+def rebook_disponibles(
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """"Volver a tomar un viaje" (#7): viajes que el pasajero ya tomó antes
+    (solicitud aceptada) y que HOY siguen disponibles — activos, con cupo, sin
+    que el conductor lo haya bloqueado, y sin que ya tenga una solicitud
+    vigente para esa ruta. Devuelve el punto de subida que usó la última vez
+    para poder re-pedir con un toque."""
+    bloqueadores = conductores_que_me_bloquearon(session, usuario_actual.id)
+
+    # Rutas donde YA tiene una solicitud vigente (no re-ofrecer esas).
+    vigentes = session.exec(
+        select(Solicitud).where(
+            Solicitud.pasajero_id == usuario_actual.id,
+            Solicitud.estado.in_(["pendiente", "aceptada"]),
+            Solicitud.viaje_finalizado == False,  # noqa: E712
+        )
+    ).all()
+    rutas_vigentes = {s.ruta_id for s in vigentes}
+
+    # Historial de viajes tomados (aceptados), del más reciente al más viejo.
+    aceptadas = session.exec(
+        select(Solicitud)
+        .where(Solicitud.pasajero_id == usuario_actual.id, Solicitud.estado == "aceptada")
+        .order_by(Solicitud.fecha_solicitud.desc())
+    ).all()
+
+    salida = []
+    vistas = set()
+    for s in aceptadas:
+        if s.ruta_id in vistas:
+            continue  # una entrada por ruta (la subida más reciente)
+        vistas.add(s.ruta_id)
+        if s.ruta_id in rutas_vigentes:
+            continue  # ya tiene una solicitud vigente para esa ruta
+        ruta = session.get(Route, s.ruta_id)
+        if not ruta or not ruta.activa or ruta.cupos_disponibles <= 0:
+            continue
+        if ruta.conductor_id in bloqueadores:
+            continue  # el conductor lo bloqueó (#8) -> no se le ofrece
+        conductor = session.get(User, ruta.conductor_id)
+        salida.append(
+            RebookOut(
+                ruta=_a_route_out(ruta, conductor),
+                embarque_lat=s.embarque_lat,
+                embarque_lng=s.embarque_lng,
+                embarque_direccion=s.embarque_direccion,
+            )
+        )
+    return salida
 
 
 @router.get("/recibidas", response_model=List[SolicitudOut])

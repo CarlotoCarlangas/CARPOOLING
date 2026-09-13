@@ -308,3 +308,17 @@ class Calificacion(SQLModel, table=True):
     comentario: Optional[str] = None
 
     fecha: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Bloqueo(SQLModel, table=True):
+    """
+    Veto de un conductor a un pasajero (ej. por una mala experiencia). Aplica
+    a TODOS los viajes de ese conductor: el pasajero bloqueado no ve sus rutas
+    en la búsqueda ni puede pedir cupo. El conductor puede desbloquearlo.
+
+    Es una relación conductor→pasajero (no al revés) y única por par.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    conductor_id: int = Field(foreign_key="user.id", index=True)
+    pasajero_id: int = Field(foreign_key="user.id", index=True)
+    fecha: datetime = Field(default_factory=datetime.utcnow)

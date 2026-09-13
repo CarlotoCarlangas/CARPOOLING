@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { buscarDireccion, direccionDesdeCoordenadas } from "../services/geocoding";
 import MapaBusqueda from "../components/MapaBusqueda";
@@ -390,6 +391,7 @@ function ChipDireccion({ color, texto, claseExtra }) {
 
 export default function Buscar() {
   const navigate = useNavigate();
+  const { token } = useAuth();
   // Todas las comunas de la Región Metropolitana (lista oficial INE DPA 2024),
   // no solo las que ya tienen rutas: el pasajero puede elegir cualquier comuna.
   const [comunas] = useState(COMUNAS_RM);
@@ -416,16 +418,19 @@ export default function Buscar() {
     // origen (comuna) — las paradas puntuales dentro de esa comuna recién
     // se muestran en el paso 4, una vez elegido un viaje concreto.
     api
-      .buscarRutas({
-        destino_lat: puntoDestino.lat,
-        destino_lng: puntoDestino.lng,
-        destino_radio_m: radioDestinoM,
-        comuna_origen: comunaOrigen,
-      })
+      .buscarRutas(
+        {
+          destino_lat: puntoDestino.lat,
+          destino_lng: puntoDestino.lng,
+          destino_radio_m: radioDestinoM,
+          comuna_origen: comunaOrigen,
+        },
+        token
+      )
       .then(setResultados)
       .catch((e) => setError(e.message))
       .finally(() => setBuscando(false));
-  }, [paso, puntoDestino, radioDestinoM, comunaOrigen]);
+  }, [paso, puntoDestino, radioDestinoM, comunaOrigen, token]);
 
   const rutaElegida = resultados.find((r) => r.id === rutaElegidaId);
 
