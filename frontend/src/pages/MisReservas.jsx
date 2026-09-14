@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import BotonEvaluar from "../components/BotonEvaluar";
+import Copi from "../components/Copi";
 
 const ESTADO_ESTILO = {
   pendiente: "bg-amber-50 text-amber-700 border-amber-200",
@@ -38,10 +39,13 @@ export default function MisReservas() {
       {cargando && <p className="text-sm text-gray-500">Cargando...</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
       {!cargando && solicitudes.length === 0 && (
-        <p className="text-gray-500 text-sm">
-          Todavía no has reservado ningún viaje.{" "}
-          <Link to="/buscar" className="text-taco underline">Buscar un viaje</Link>
-        </p>
+        <div className="text-center py-6">
+          <Copi pose="duerme" size={92} className="mx-auto mb-1" />
+          <p className="text-gray-500 text-sm">
+            Todavía no has reservado ningún viaje.{" "}
+            <Link to="/buscar" className="text-taco underline">Buscar un viaje</Link>
+          </p>
+        </div>
       )}
 
       <div className="space-y-3">

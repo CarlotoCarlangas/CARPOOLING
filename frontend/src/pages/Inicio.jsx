@@ -6,6 +6,7 @@ import { useModo } from "../context/ModoContext";
 import { api } from "../services/api";
 import Avisos from "../components/Avisos";
 import RebookRapido from "../components/RebookRapido";
+import Copi from "../components/Copi";
 
 // getDay(): 0 = domingo ... 6 = sábado. El navegador usa la hora local del
 // dispositivo, que para el usuario ES hora de Chile — no hace falta convertir.
@@ -275,6 +276,7 @@ export default function Inicio() {
               )}
               {!cargando && misRutas.length === 0 && (
                 <div className="bg-white rounded-2xl shadow-sm p-6 text-center border-2 border-gray-100">
+                  <Copi pose="duerme" size={92} className="mx-auto mb-1" />
                   <p className="text-gray-600 text-sm mb-3">
                     Todavía no has publicado una ruta.
                   </p>

@@ -238,6 +238,8 @@ class SolicitudOut(BaseModel):
     embarque_direccion: str
     estado: str
     motivo_rechazo: Optional[str] = None
+    motivo_cancelacion: Optional[str] = None
+    con_costo: bool = False
     viaje_finalizado: bool = False
     fecha_solicitud: datetime
 
@@ -248,6 +250,8 @@ class SolicitudPasajeroOut(BaseModel):
     embarque_direccion: str
     estado: str
     motivo_rechazo: Optional[str] = None
+    motivo_cancelacion: Optional[str] = None
+    con_costo: bool = False
     viaje_finalizado: bool = False
     fecha_solicitud: datetime
 

@@ -60,7 +60,7 @@ export default function Navbar() {
   tabs.push({ to: "/perfil", label: "Perfil", icon: ICONOS.perfil });
 
   return (
-    <nav className="flex-shrink-0 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] pb-[env(safe-area-inset-bottom)]">
+    <nav className="relative z-10 flex-shrink-0 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-stretch justify-around max-w-2xl mx-auto">
         {tabs.map((t) => (
           <NavLink

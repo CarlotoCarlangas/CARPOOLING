@@ -213,12 +213,22 @@ class Solicitud(SQLModel, table=True):
     embarque_lng: float
     embarque_direccion: str
 
-    estado: str = Field(default="pendiente", index=True)  # pendiente | aceptada | rechazada
+    estado: str = Field(default="pendiente", index=True)  # pendiente | aceptada | rechazada | cancelada
 
     # Motivo que el conductor elige (respuesta rápida predefinida o texto
     # libre) al rechazar la solicitud. Se le muestra al pasajero para que
     # sepa por qué no fue aceptado. Null mientras no haya rechazo.
     motivo_rechazo: Optional[str] = None
+
+    # Motivo cuando el PASAJERO cancela su propia solicitud (estado
+    # "cancelada"). Se le muestra al conductor.
+    motivo_cancelacion: Optional[str] = None
+
+    # True si la cancelación/interrupción ocurrió con el viaje ya CONFIRMADO
+    # (aceptado) o ya INICIADO -> corresponde asumir costos.
+    # TODO PRODUCCIÓN: el cobro real depende del módulo de pagos (Módulo 6),
+    # que aún no existe. Hoy solo se marca y se advierte al usuario.
+    con_costo: bool = Field(default=False)
 
     # Se marca True cuando el conductor finaliza el viaje de esta ruta. Habilita
     # la evaluación mutua (Módulo 7): recién terminado el viaje, conductor y

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import Copi from "../components/Copi";
 
 const DIA_CORTO = {
   lunes: "Lun", martes: "Mar", miercoles: "Mié", jueves: "Jue",
@@ -54,6 +55,7 @@ export default function MisViajes() {
       {error && <p className="text-red-600 text-sm">{error}</p>}
       {!cargando && rutas.length === 0 && (
         <div className="bg-white rounded-2xl shadow-card p-6 text-center border border-slate-100">
+          <Copi pose="duerme" size={96} className="mx-auto mb-1" />
           <p className="text-gray-600 text-sm mb-3">Todavía no has publicado ningún viaje.</p>
           <Link to="/crear-ruta" className="inline-block bg-taco text-white px-5 py-2.5 rounded-lg font-semibold">
             Publicar mi primera ruta

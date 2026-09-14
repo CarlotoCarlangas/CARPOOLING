@@ -13,7 +13,7 @@ from database import get_session
 from deps import get_current_user, get_current_user_optional
 from models import Notificacion, Route, Solicitud, User, VehiculoDocumento
 from routes.bloqueos import conductores_que_me_bloquearon
-from schemas import ConductorResumen, PuntoRuta, RouteCreate, RouteEditRequest, RouteOut, UbicacionUpdate
+from schemas import ConductorResumen, PuntoRuta, RechazoRequest, RouteCreate, RouteEditRequest, RouteOut, UbicacionUpdate
 
 router = APIRouter(prefix="/routes", tags=["routes"])
 
@@ -326,6 +326,54 @@ def editar_ruta(
     return _a_route_out(ruta, usuario_actual)
 
 
+@router.delete("/{ruta_id}", status_code=200)
+def eliminar_ruta(
+    ruta_id: int,
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """El conductor elimina su ruta. Si nunca tuvo solicitudes, se BORRA de
+    verdad. Si tiene historial, se ARCHIVA (activa=False: desaparece de
+    listados/búsqueda pero se conservan evaluaciones e historial). Las
+    solicitudes vigentes (pendientes o aceptadas no realizadas) se cancelan y
+    se avisa a esos pasajeros."""
+    ruta = _ruta_del_conductor(ruta_id, usuario_actual, session)
+    solicitudes = session.exec(select(Solicitud).where(Solicitud.ruta_id == ruta.id)).all()
+
+    afectadas = 0
+    for s in solicitudes:
+        if s.estado in ("pendiente", "aceptada") and not s.viaje_finalizado:
+            era_confirmada = s.estado == "aceptada"
+            s.estado = "rechazada"
+            s.motivo_rechazo = "El conductor eliminó este viaje"
+            # Cancelar una reserva ya confirmada implica costo (ver módulo pagos).
+            s.con_costo = era_confirmada or ruta.en_curso
+            session.add(s)
+            session.add(Notificacion(
+                user_id=s.pasajero_id,
+                tipo="viaje_cancelado",
+                titulo="Viaje cancelado",
+                mensaje=f"{usuario_actual.nombre} eliminó el viaje "
+                        f"{ruta.origen_comuna or ruta.origen_direccion} → "
+                        f"{ruta.destino_comuna or ruta.destino_direccion}."
+                        + (" Puede aplicar costo por cancelación." if s.con_costo else ""),
+                ruta_id=ruta.id,
+                solicitud_id=s.id,
+            ))
+            afectadas += 1
+
+    if not solicitudes:
+        session.delete(ruta)
+        session.commit()
+        return {"eliminada": True, "modo": "borrada", "solicitudes_afectadas": 0}
+
+    ruta.activa = False
+    ruta.en_curso = False
+    session.add(ruta)
+    session.commit()
+    return {"eliminada": True, "modo": "archivada", "solicitudes_afectadas": afectadas}
+
+
 @router.put("/{ruta_id}/iniciar", response_model=RouteOut)
 def iniciar_viaje(
     ruta_id: int,
@@ -411,6 +459,49 @@ def finalizar_viaje(
     for sol in aceptadas:
         sol.viaje_finalizado = True
         session.add(sol)
+
+    session.commit()
+    session.refresh(ruta)
+    return _a_route_out(ruta, usuario_actual)
+
+
+@router.put("/{ruta_id}/terminar-emergencia", response_model=RouteOut)
+def terminar_emergencia(
+    ruta_id: int,
+    datos: RechazoRequest = RechazoRequest(),
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """El conductor TERMINA el viaje antes de llegar a destino por un imprevisto
+    (pinchazo, emergencia). Corta el viaje en curso, avisa a los pasajeros
+    aceptados con el motivo y, como el viaje ya había iniciado, marca costo.
+    Igual habilita la evaluación mutua (viaje_finalizado)."""
+    ruta = _ruta_del_conductor(ruta_id, usuario_actual, session)
+    if not ruta.en_curso:
+        raise HTTPException(status_code=400, detail="El viaje no está en curso")
+
+    motivo = (datos.motivo or "").strip()[:300] or "imprevisto en la ruta"
+    ruta.en_curso = False
+    ruta.ubicacion_lat = None
+    ruta.ubicacion_lng = None
+    ruta.ubicacion_actualizada = None
+    session.add(ruta)
+
+    aceptadas = session.exec(
+        select(Solicitud).where(Solicitud.ruta_id == ruta.id, Solicitud.estado == "aceptada")
+    ).all()
+    for sol in aceptadas:
+        sol.viaje_finalizado = True  # el viaje terminó (aunque sin llegar): pueden evaluarse
+        sol.con_costo = True         # se interrumpió con viaje ya iniciado
+        session.add(sol)
+        session.add(Notificacion(
+            user_id=sol.pasajero_id,
+            tipo="viaje_cancelado",
+            titulo="El viaje se terminó antes de llegar",
+            mensaje=f"{usuario_actual.nombre} tuvo que terminar el viaje: {motivo}.",
+            ruta_id=ruta.id,
+            solicitud_id=sol.id,
+        ))
 
     session.commit()
     session.refresh(ruta)

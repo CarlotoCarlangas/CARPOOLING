@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from deps import get_current_user
-from models import Calificacion, Route, Solicitud, User
+from models import Calificacion, Notificacion, Route, Solicitud, User
 from routes.bloqueos import conductores_que_me_bloquearon, esta_bloqueado
 from routes.routes import COMISION_PASAJERO, _a_route_out
 from schemas import (
@@ -69,6 +69,8 @@ def _a_solicitud_out(solicitud: Solicitud, ruta: Route, conductor: User, pasajer
         embarque_direccion=solicitud.embarque_direccion,
         estado=solicitud.estado,
         motivo_rechazo=solicitud.motivo_rechazo,
+        motivo_cancelacion=solicitud.motivo_cancelacion,
+        con_costo=solicitud.con_costo,
         viaje_finalizado=solicitud.viaje_finalizado,
         fecha_solicitud=solicitud.fecha_solicitud,
     )
@@ -151,6 +153,8 @@ def mis_solicitudes(
                 embarque_direccion=s.embarque_direccion,
                 estado=s.estado,
                 motivo_rechazo=s.motivo_rechazo,
+                motivo_cancelacion=s.motivo_cancelacion,
+                con_costo=s.con_costo,
                 viaje_finalizado=s.viaje_finalizado,
                 fecha_solicitud=s.fecha_solicitud,
             )
@@ -323,6 +327,67 @@ def rechazar_solicitud(
     )
     pasajero = session.get(User, solicitud.pasajero_id)
     return _a_solicitud_out(solicitud, ruta, usuario_actual, pasajero)
+
+
+@router.put("/{solicitud_id}/cancelar", response_model=SolicitudPasajeroOut)
+def cancelar_solicitud(
+    solicitud_id: int,
+    datos: RechazoRequest = RechazoRequest(),
+    usuario_actual: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """El PASAJERO cancela su propia solicitud, con un motivo (respuesta rápida
+    o texto libre). Si estaba CONFIRMADA (aceptada) o el viaje ya INICIÓ, se
+    marca con_costo=True (se asumen costos).
+    TODO PRODUCCIÓN: el cobro real lo hará el módulo de pagos (Módulo 6)."""
+    solicitud = session.get(Solicitud, solicitud_id)
+    if not solicitud or solicitud.pasajero_id != usuario_actual.id:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    if solicitud.estado not in ("pendiente", "aceptada") or solicitud.viaje_finalizado:
+        raise HTTPException(status_code=400, detail="Esta solicitud ya no se puede cancelar")
+
+    ruta = session.get(Route, solicitud.ruta_id)
+    era_confirmada = solicitud.estado == "aceptada"
+    viaje_iniciado = bool(ruta and ruta.en_curso)
+
+    solicitud.estado = "cancelada"
+    solicitud.motivo_cancelacion = (datos.motivo or "").strip()[:300] or None
+    solicitud.con_costo = era_confirmada or viaje_iniciado
+    solicitud.fecha_respuesta = datetime.utcnow()
+    session.add(solicitud)
+
+    # Si estaba aceptada, se libera el cupo para otro pasajero.
+    if era_confirmada and ruta:
+        ruta.cupos_disponibles += 1
+        session.add(ruta)
+
+    # Avisar al conductor.
+    if ruta:
+        session.add(Notificacion(
+            user_id=ruta.conductor_id,
+            tipo="solicitud_cancelada",
+            titulo="Un pasajero canceló",
+            mensaje=f"{usuario_actual.nombre} canceló su cupo"
+                    + (f": {solicitud.motivo_cancelacion}" if solicitud.motivo_cancelacion else ".")
+                    + (" (con costo)" if solicitud.con_costo else ""),
+            ruta_id=ruta.id,
+            solicitud_id=solicitud.id,
+        ))
+
+    session.commit()
+    session.refresh(solicitud)
+    conductor = session.get(User, ruta.conductor_id) if ruta else None
+    return SolicitudPasajeroOut(
+        id=solicitud.id,
+        ruta=_a_ruta_resumen(ruta, conductor),
+        embarque_direccion=solicitud.embarque_direccion,
+        estado=solicitud.estado,
+        motivo_rechazo=solicitud.motivo_rechazo,
+        motivo_cancelacion=solicitud.motivo_cancelacion,
+        con_costo=solicitud.con_costo,
+        viaje_finalizado=solicitud.viaje_finalizado,
+        fecha_solicitud=solicitud.fecha_solicitud,
+    )
 
 
 @router.get("/{solicitud_id}/viaje", response_model=ViajeEnCursoOut)

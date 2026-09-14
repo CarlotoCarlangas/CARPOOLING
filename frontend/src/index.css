@@ -39,3 +39,19 @@ input, select, textarea, button {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- Mascota "Copi" (pin + termo): animaciones sutiles ---- */
+@keyframes copi-bob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-6px) } }
+@keyframes copi-blink { 0%,92%,100%{ transform: scaleY(1) } 96%{ transform: scaleY(.1) } }
+@keyframes copi-steam { 0%{ opacity:0; transform: translateY(3px) scale(.9) } 30%{ opacity:.75 } 100%{ opacity:0; transform: translateY(-14px) scale(1.1) } }
+@keyframes copi-zzz { 0%{ opacity:0; transform: translate(0,0) scale(.8) } 30%{ opacity:.9 } 100%{ opacity:0; transform: translate(7px,-12px) scale(1.1) } }
+.copi-bob { animation: copi-bob 3.6s ease-in-out infinite; transform-origin: center bottom; }
+.copi-eye { transform-origin: center; animation: copi-blink 5s infinite; }
+.copi-w1 { animation: copi-steam 2.6s ease-in infinite; }
+.copi-w2 { animation: copi-steam 2.6s ease-in .9s infinite; }
+.copi-w3 { animation: copi-steam 2.6s ease-in 1.7s infinite; }
+.copi-z1 { animation: copi-zzz 2.8s ease-in infinite; }
+.copi-z2 { animation: copi-zzz 2.8s ease-in 1.4s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .copi-bob, .copi-eye, .copi-w1, .copi-w2, .copi-w3, .copi-z1, .copi-z2 { animation: none; }
+}

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { buscarDireccion, direccionDesdeCoordenadas } from "../services/geocoding";
 import MapaBusqueda from "../components/MapaBusqueda";
+import Copi from "../components/Copi";
 import { COMUNAS_RM } from "../data/comunasRM";
 
 const RADIO_DEFECTO_M = 200;
@@ -571,9 +572,12 @@ export default function Buscar() {
       {error && <p className="text-red-600 text-sm">{error}</p>}
       {buscando && <p className="text-center text-sm text-gray-500">Buscando...</p>}
       {!buscando && resultados.length === 0 && (
-        <p className="text-center text-sm text-gray-500">
-          No hay viajes dentro de este radio. Prueba ampliándolo arriba.
-        </p>
+        <div className="text-center">
+          <Copi pose="duerme" size={72} className="mx-auto" />
+          <p className="text-sm text-gray-500">
+            No hay viajes dentro de este radio. Prueba ampliándolo arriba.
+          </p>
+        </div>
       )}
 
       {resultados.length > 0 && (

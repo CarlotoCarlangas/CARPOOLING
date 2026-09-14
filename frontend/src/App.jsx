@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ViajeProvider } from "./context/ViajeContext";
 import { ModoProvider, useModo } from "./context/ModoContext";
 import Navbar from "./components/Navbar";
+import FondoTerritorial from "./components/FondoTerritorial";
 import RutaProtegida from "./components/RutaProtegida";
 import Inicio from "./pages/Inicio";
 import Registro from "./pages/Registro";
@@ -31,7 +32,8 @@ function Layout({ children }) {
   const { modo } = useModo();
   return (
     <div data-modo={modo} className="h-full flex flex-col overflow-hidden">
-      <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
+      <FondoTerritorial />
+      <main className="relative z-10 flex-1 min-h-0 overflow-y-auto">{children}</main>
       <Navbar />
     </div>
   );
