@@ -40,6 +40,18 @@ input, select, textarea, button {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* ---- Tarjetas translúcidas ----
+   El fondo blanco de las tarjetas se hace semitransparente para que el fondo
+   territorial (rutas/pines/grilla) se asome a través de ellas. Solo afecta el
+   COLOR DE FONDO (el texto y los íconos siguen opacos y legibles). Un leve
+   desenfoque mantiene el texto nítido sobre el patrón. Se excluye la barra
+   inferior (nav) para que la navegación se lea siempre nítida. */
+.bg-white:not(nav) {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
 /* ---- Mascota "Copi" (pin + termo): animaciones sutiles ---- */
 @keyframes copi-bob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-6px) } }
 @keyframes copi-blink { 0%,92%,100%{ transform: scaleY(1) } 96%{ transform: scaleY(.1) } }
